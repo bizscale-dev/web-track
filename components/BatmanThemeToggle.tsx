@@ -11,6 +11,13 @@ export default function BatmanThemeToggle() {
     if (storedTheme === "dark") {
       document.documentElement.classList.add("bat-mode");
       setIsDark(true);
+    } else if (storedTheme === "light") {
+      document.documentElement.classList.remove("bat-mode");
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add("bat-mode");
+      localStorage.setItem("bat-theme", "dark");
+      setIsDark(true);
     }
   }, []);
 
