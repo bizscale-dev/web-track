@@ -21,7 +21,7 @@ type ActivityLog = {
 };
 
 export default function TimelinesPage() {
-  const { role } = useAuth();
+  const { role, loading: authLoading } = useAuth();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +62,17 @@ export default function TimelinesPage() {
       hour12: true
     }).format(date);
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-700">Decrypting session...</h2>
+        </div>
+      </div>
+    );
+  }
 
   if (role !== "admin" && role !== "manager") {
     return (

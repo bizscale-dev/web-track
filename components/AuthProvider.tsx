@@ -31,30 +31,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        setRole(session.user.user_metadata?.role || "user");
-        setName(session.user.user_metadata?.name || "Unknown Operator");
-        setAvatar(session.user.user_metadata?.avatar_url || ""); // Extract Avatar
-        setEmail(session.user.email || "");
-      }
-      setLoading(false);
-    });
+    let mounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        setRole(session.user.user_metadata?.role || "user");
-        setName(session.user.user_metadata?.name || "Unknown Operator");
-        setAvatar(session.user.user_metadata?.avatar_url || ""); // Extract Avatar
-        setEmail(session.user.email || "");
+    const syncSession = (nextSession: any) => {
+      if (nextSession?.user) {
+        setSession(nextSession);
+        setRole(nextSession.user.user_metadata?.role || "user");
+        setName(nextSession.user.user_metadata?.name || "Unknown Operator");
+        setAvatar(nextSession.user.user_metadata?.avatar_url || "");
+        setEmail(nextSession.user.email || "");
       } else {
+        setSession(null);
         setRole("user");
         setName("");
         setAvatar("");
         setEmail("");
       }
+    };
+
+    async function initializeAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      syncSession(session);
+      setLoading(false);
+    }
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+
+      syncSession(nextSession);
       setLoading(false);
     });
 

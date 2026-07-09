@@ -9,7 +9,7 @@ import { WEBSITE_STATUSES } from "@/lib/statuses";
 import { createSecureTeamMember } from "@/app/adminActions";
 
 export default function AdminDashboard() {
-  const { role } = useAuth();
+  const { role, loading } = useAuth();
   const [team, setTeam] = useState<any[]>([]);
   
   // New User States
@@ -38,6 +38,16 @@ export default function AdminDashboard() {
       calculateMetrics();
     }
   }, [role]);
+
+  if (loading) {
+    return (
+      <main className="p-8 max-w-7xl mx-auto w-full min-h-[60vh] flex flex-col items-center justify-center">
+        <Loader2 className="w-20 h-20 animate-spin text-blue-600 mb-6" />
+        <h1 className="text-3xl font-black text-gray-900 mb-2">Decrypting session...</h1>
+        <p className="text-gray-500">Checking your access level before loading Command Center.</p>
+      </main>
+    );
+  }
 
   if (role === "user") {
     return (
