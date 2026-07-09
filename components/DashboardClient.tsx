@@ -96,8 +96,7 @@ export default function DashboardClient({
     setUpdatingWebsiteIds((ids) => ids.filter((id) => id !== websiteId));
 
     if (!error) {
-      const { data: { session } } = await supabase.auth.getSession();
-      const operatorEmail = session?.user?.email || "Unknown User";
+      const operatorIdentity = name || "Unknown Operator";
 
       const { error: logError } = await supabase
         .from("website_activity_logs")
@@ -107,7 +106,7 @@ export default function DashboardClient({
           old_value: previousStatus,
           new_value: nextStatus,
           message: `Status changed from ${previousStatus} to ${nextStatus}`,
-          changed_by_email: operatorEmail 
+          changed_by_email: operatorIdentity,
         });
 
       if (logError) setActivityLogError(logError.message);
@@ -119,7 +118,7 @@ export default function DashboardClient({
         oldStatus: previousStatus,
         newStatus: nextStatus,
         websiteId: websiteId,
-        changedBy: operatorEmail,
+        changedBy: operatorIdentity,
       }).catch(err => console.error("Server action failed:", err));
 
       router.refresh();
