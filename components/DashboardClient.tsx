@@ -98,6 +98,7 @@ export default function DashboardClient({
     if (!error) {
       const operatorIdentity = name || "Unknown Operator";
 
+      // 1. Log to Forensics Timeline
       const { error: logError } = await supabase
         .from("website_activity_logs")
         .insert({
@@ -111,6 +112,57 @@ export default function DashboardClient({
 
       if (logError) setActivityLogError(logError.message);
 
+      // 2. CONSTRUCT THE PUBLIC CHAT NOTIFICATION
+      let customMessage = "";
+      let mention = "";
+      const domainText = currentWebsite.domain || "No domain set";
+
+      switch (nextStatus) {
+        case "Pending":
+          customMessage = "We Have a new Business For Website Creation";
+          break;
+        case "Pages Development":
+          customMessage = "Pages Development For this Site Has Started";
+          break;
+        case "Sent For Content":
+          mention = "Mention: <users/102335722105092363033> <users/116242269621779042739>\n";
+          
+          // Fetch pages dynamically from Supabase
+          const { data: pagesData } = await supabase
+            .from("pages")
+            .select("*")
+            .eq("website_id", websiteId);
+            
+          let formattedPages = "*(No pages found in the database for this website)*";
+          if (pagesData && pagesData.length > 0) {
+            formattedPages = pagesData.map(p => `- ${p.page_name || 'Unnamed Page'}: ${p.url || 'No URL yet'}`).join('\n');
+          }
+          
+          customMessage = `We Need Content For The Following Pages:\n\n${formattedPages}`;
+          break;
+        case "Content Completed":
+          customMessage = "Content Has Been Completed & Web Can Start Content Pasting";
+          break;
+        case "Content Updated":
+          customMessage = `Content Has Been Pasted On The Website\nWebsite URL: ${domainText}`;
+          break;
+        case "Domain Connection":
+          customMessage = "Domain Has Been Connected To the Site";
+          break;
+        case "Completed":
+          customMessage = `Site Is Complete\nWebsite URL: ${domainText}`;
+          break;
+        case "Initial SEO":
+          customMessage = `Website URL: ${domainText}\n\nPlease Start WEB Seo For This Website`;
+          break;
+        default:
+          customMessage = `Status updated to: ${nextStatus}`;
+      }
+
+      // 3. Assemble final string (Google Chat uses * for bold)
+      const finalChatMessage = `${mention}Business Name: *${currentWebsite.website_name.trim()}*\nStatus Changed By: *${operatorIdentity}*\n\n${customMessage}`;
+
+      // 4. Send the completely formatted package to the Server Action
       triggerN8nWebhook({
         event: 'status_changed',
         websiteName: currentWebsite.website_name,
@@ -119,6 +171,7 @@ export default function DashboardClient({
         newStatus: nextStatus,
         websiteId: websiteId,
         changedBy: operatorIdentity,
+        formattedMessage: finalChatMessage // <-- Appended here for actions.ts to catch
       }).catch(err => console.error("Server action failed:", err));
 
       router.refresh();

@@ -4,14 +4,6 @@ import { supabase } from "@/lib/supabase";
 
 const WEBHOOK_URL = 'https://n8n.bizscale.pk/webhook/a5a888cd-8be6-46d4-a641-03c98dd3c8b0';
 
-function getStatusTransitionMessage(websiteName: string, oldStatus: string | null, newStatus: string): string {
-  const name = websiteName.trim();
-  if (oldStatus && oldStatus !== newStatus) {
-    return `${name} has moved from ${oldStatus} to ${newStatus}.`;
-  }
-  return `${name} status changed to ${newStatus}.`;
-}
-
 export async function triggerN8nWebhook(payload: {
   event: string;
   websiteName: string;
@@ -19,7 +11,7 @@ export async function triggerN8nWebhook(payload: {
   oldStatus: string | null;
   newStatus: string;
   websiteId?: number;
-  changedBy?: string; // <-- NEW: Tracking the operator
+  changedBy?: string; // Tracking the operator
 }) {
   if (!WEBHOOK_URL) return { success: false, error: 'No webhook URL configured' };
 
@@ -40,20 +32,7 @@ export async function triggerN8nWebhook(payload: {
   const cleanDomain = payload.domain || 'N/A';
   const operator = payload.changedBy || 'System'; // Default fallback
 
-  // 1. Map Emojis to Your Specific Pipeline Stages
-  const statusEmojis: Record<string, string> = {
-    'Pending': '⏳',
-    'Pages Development': '🛠️',
-    'Sent For Content': '📝',
-    'Content Completed': '✅',
-    'Content Updated': '🔄',
-    'Domain Connection': '🔗',
-    'Completed': '🎉',
-    'Initial SEO': '📈'
-  };
-  const emoji = statusEmojis[payload.newStatus] || '🔹';
-
-  // 2. Generate Localized Timestamp
+  // 1. Generate Localized Timestamp
   const timestamp = new Date().toLocaleString('en-US', { 
     timeZone: 'Asia/Karachi',
     hour: 'numeric',
@@ -61,26 +40,59 @@ export async function triggerN8nWebhook(payload: {
     hour12: true 
   });
 
-  // 3. Construct the Rich Chat Notifications
-  let formattedMessage = '';
-  
-  if (payload.newStatus === 'Sent For Content') {
-    let pagesListStr = '';
-    if (targetWebsiteId) {
-      const { data: tasks } = await supabase
-        .from('website_tasks')
-        .select('title, url')
-        .eq('website_id', targetWebsiteId);
+  // 2. Construct the Custom Message Logic
+  let customMessage = '';
+  let mention = '';
 
-      if (tasks && tasks.length > 0) {
-        pagesListStr = '\n\n**Pages Required For Content:**\n' + tasks.map(t => `- ${t.title}: ${t.url || 'N/A'}`).join('\n');
+  switch (payload.newStatus) {
+    case 'Pending':
+      customMessage = `We Have a new Business For Website Creation`;
+      break;
+    case 'Pages Development':
+      customMessage = `Pages Development For this Site Has Started`;
+      break;
+    case 'Sent For Content':
+      mention = `<users/102335722105092363033> <users/116242269621779042739> <users/105177322178619127353>\n`;
+      
+      let pagesListStr = '*(No pages found in the database for this website)*';
+      if (targetWebsiteId) {
+        // Querying from website_tasks as per your original code
+        const { data: tasks } = await supabase
+          .from('website_tasks')
+          .select('title, url')
+          .eq('website_id', targetWebsiteId);
+
+        if (tasks && tasks.length > 0) {
+          pagesListStr = tasks.map(t => `- ${t.title}: ${t.url || 'N/A'}`).join('\n');
+        }
       }
-    }
-    formattedMessage = `🔔 *Action Required:* <users/102335722105092363033> <users/116242269621779042739> <users/105177322178619127353>\n**Business Name:** ${cleanName}\n**URL:** ${cleanDomain}${pagesListStr}\n👤 *Triggered By:* ${operator}\n⏱️ *Time:* ${timestamp}`;
-  } else {
-    const statusMsg = getStatusTransitionMessage(cleanName, payload.oldStatus, payload.newStatus);
-    formattedMessage = `**Business Name:** ${cleanName}\n**Website-Url:** ${cleanDomain}\n**Status:** ${statusMsg}\n👤 *Triggered By:* ${operator}\n⏱️ *Time:* ${timestamp}`;
+      customMessage = `We Need Content For The Following Pages:\n\n${pagesListStr}`;
+      break;
+    case 'Content Completed':
+      customMessage = `Content Has Been Completed & Web Can Start Content Pasting`;
+      break;
+    case 'Content Updated':
+      customMessage = `Content Has Been Pasted On The Website\nWebsite URL: ${cleanDomain}`;
+      break;
+    case 'Domain Connection':
+      customMessage = `Domain Has Been Connected To the Site`;
+      break;
+    case 'Completed':
+      customMessage = `Site Is Complete\nWebsite URL: ${cleanDomain}`;
+      break;
+    case 'Initial SEO':
+      customMessage = `Website URL: ${cleanDomain}\n\nPlease Start WEB Seo For This Website`;
+      break;
+    default:
+      customMessage = `Status changed from ${payload.oldStatus} to ${payload.newStatus}.`;
   }
+
+  // 3. Assemble the Final String (Using single * for Google Chat bolding)
+  const formattedMessage = `${mention}*Business Name:* ${cleanName}
+*Status Changed By:* ${operator}
+⏱️ *Time:* ${timestamp}
+
+${customMessage}`;
 
   // 4. Fire Payload to n8n
   try {
@@ -90,7 +102,7 @@ export async function triggerN8nWebhook(payload: {
       body: JSON.stringify({
         ...payload,
         message: formattedMessage,
-        changedBy: operator // Pass explicitly to n8n JSON body
+        changedBy: operator
       }),
     });
 
