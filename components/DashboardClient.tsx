@@ -51,6 +51,7 @@ export default function DashboardClient({
         matchesStatus = [
           "In Progress",
           "Pages Development",
+          "Sent For Content Demand",
           "Sent For Content",
           "Content Completed",
           "Content Updated",

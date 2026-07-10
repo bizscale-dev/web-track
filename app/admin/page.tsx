@@ -6,7 +6,7 @@ import { ArrowLeft, Users, Clock, Plus, Trash2, Activity, ShieldAlert, BarChart3
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { WEBSITE_STATUSES } from "@/lib/statuses";
-import { createSecureTeamMember } from "@/app/adminActions";
+import { createSecureTeamMember, updateSecureTeamMember } from "@/app/adminActions";
 import { completelyDeleteUser } from "@/app/actions";
 
 export default function AdminDashboard() {
@@ -133,18 +133,17 @@ export default function AdminDashboard() {
 
   const saveEdit = async () => {
     if (!editName.trim() || role !== "admin" || !editingId) return;
-    const { data, error } = await supabase
-      .from("team_members")
-      .update({ name: editName, role: editRole })
-      .eq("id", editingId)
-      .select()
-      .single();
+    
+    const response = await updateSecureTeamMember(editingId, {
+      name: editName,
+      role: editRole
+    });
 
-    if (data && !error) {
-      setTeam(team.map(t => t.id === editingId ? data : t));
+    if (response.success && response.member) {
+      setTeam(team.map(t => t.id === editingId ? response.member : t));
       setEditingId(null);
     } else {
-      alert("Error updating member");
+      alert("Error updating member: " + response.error);
     }
   };
 

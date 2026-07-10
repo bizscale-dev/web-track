@@ -5,6 +5,18 @@ import { createClient } from '@supabase/supabase-js';
 
 const WEBHOOK_URL = 'https://n8n.bizscale.pk/webhook/a5a888cd-8be6-46d4-a641-03c98dd3c8b0';
 
+const statusEmojis: Record<string, string> = {
+  'Pending': '⏳',
+  'Pages Development': '💻',
+  'Sent For Content Demand': '📋',
+  'Sent For Content': '📝',
+  'Content Completed': '✅',
+  'Content Updated': '🔄',
+  'Domain Connection': '🌐',
+  'Completed': '🎉',
+  'Initial SEO': '🚀'
+};
+
 export async function triggerN8nWebhook(payload: {
   event: string;
   websiteName: string;
@@ -34,11 +46,11 @@ export async function triggerN8nWebhook(payload: {
   const operator = payload.changedBy || 'System'; // Default fallback
 
   // 1. Generate Localized Timestamp
-  const timestamp = new Date().toLocaleString('en-US', { 
+  const timestamp = new Date().toLocaleString('en-US', {
     timeZone: 'Asia/Karachi',
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true 
+    hour12: true
   });
 
   // 2. Construct the Custom Message Logic
@@ -47,14 +59,20 @@ export async function triggerN8nWebhook(payload: {
 
   switch (payload.newStatus) {
     case 'Pending':
+      mention = `<users/102335722105092363033> <users/116242269621779042739>\n`; // Usman, Hussain
       customMessage = `We Have a new Business For Website Creation`;
       break;
     case 'Pages Development':
+      mention = `<users/102335722105092363033>\n`; // Usman
       customMessage = `Pages Development For this Site Has Started`;
       break;
+    case 'Sent For Content Demand':
+      mention = `<users/105177322178619127353>\n`; // Ammar
+      customMessage = `Content demand to be generated for this site.`;
+      break;
     case 'Sent For Content':
-      mention = `<users/102335722105092363033> <users/116242269621779042739> <users/105177322178619127353>\n`;
-      
+      mention = `<users/105573790640479430955>\n`; // Haris
+
       let pagesListStr = '*(No pages found in the database for this website)*';
       if (targetWebsiteId) {
         // Querying from website_tasks as per your original code
@@ -70,19 +88,24 @@ export async function triggerN8nWebhook(payload: {
       customMessage = `We Need Content For The Following Pages:\n\n${pagesListStr}`;
       break;
     case 'Content Completed':
-      customMessage = `Content Has Been Completed & Web Can Start Content Pasting`;
+      mention = `<users/116242269621779042739>\n`; // Hussain
+      customMessage = `Content has been completed and is ready for review/implementation.`;
       break;
     case 'Content Updated':
-      customMessage = `Content Has Been Pasted On The Website\nWebsite URL: ${cleanDomain}`;
+      mention = `<users/102335722105092363033>\n`; // Usman
+      customMessage = `Content updates have been pushed to the site.`;
       break;
     case 'Domain Connection':
-      customMessage = `Domain Has Been Connected To the Site`;
+      mention = `<users/116242269621779042739>\n`; // Hussain
+      customMessage = `The site is ready for domain connection and final DNS routing.`;
       break;
     case 'Completed':
-      customMessage = `Site Is Complete\nWebsite URL: ${cleanDomain}`;
+      mention = `<users/102335722105092363033>\n`; // Usman
+      customMessage = `Website development and launch are officially completed.`;
       break;
     case 'Initial SEO':
-      customMessage = `Website URL: ${cleanDomain}\n\nPlease Start WEB Seo For This Website`;
+      mention = `<users/105177322178619127353>\n`; // Ammar
+      customMessage = `The site is now handed over for Initial SEO setup.`;
       break;
     default:
       customMessage = `Status changed from ${payload.oldStatus} to ${payload.newStatus}.`;
@@ -103,7 +126,8 @@ ${customMessage}`;
       body: JSON.stringify({
         ...payload,
         message: formattedMessage,
-        changedBy: operator
+        changedBy: operator,
+        emoji: statusEmojis[payload.newStatus] || ''
       }),
     });
 
@@ -193,16 +217,32 @@ export async function cascadeNameUpdate(oldName: string, newName: string, userId
   });
 
   try {
-    // 2. Force update the public profiles table
-    await supabaseAdmin.from("profiles").update({ name: newName }).eq("id", userId);
+    // 2. Fetch user details from auth vault to get email
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (userError || !user) throw new Error(userError?.message || "Auth user not found");
 
-    // 3. Force update ALL website cards assigned to this person
-    await supabaseAdmin.from("websites").update({ developer: newName }).eq("developer", oldName);
-    await supabaseAdmin.from("websites").update({ content_writer: newName }).eq("content_writer", oldName);
-    await supabaseAdmin.from("websites").update({ seo_person: newName }).eq("seo_person", oldName);
+    // 3. Force update the team_members table (instead of profiles) using email matching
+    if (user.email) {
+      const { error: teamError } = await supabaseAdmin
+        .from("team_members")
+        .update({ name: newName })
+        .eq("email", user.email);
+      if (teamError) throw teamError;
+    }
 
-    // 4. Force update the forensics timeline
-    await supabaseAdmin.from("website_activity_logs").update({ changed_by_email: newName }).eq("changed_by_email", oldName);
+    // 4. Force update ALL website cards assigned to this person
+    const { error: devError } = await supabaseAdmin.from("websites").update({ developer: newName }).eq("developer", oldName);
+    if (devError) throw devError;
+
+    const { error: writerError } = await supabaseAdmin.from("websites").update({ content_writer: newName }).eq("content_writer", oldName);
+    if (writerError) throw writerError;
+
+    const { error: seoError } = await supabaseAdmin.from("websites").update({ seo_person: newName }).eq("seo_person", oldName);
+    if (seoError) throw seoError;
+
+    // 5. Force update the forensics timeline
+    const { error: logError } = await supabaseAdmin.from("website_activity_logs").update({ changed_by_email: newName }).eq("changed_by_email", oldName);
+    if (logError) throw logError;
 
     return { success: true };
   } catch (error: any) {

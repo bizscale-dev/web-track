@@ -49,6 +49,7 @@ export default function SecureStatusDropdown({ site }: { site: any }) {
     >
       <option value="Pending">Pending</option>
       <option value="Pages Development">Pages Development</option>
+      <option value="Sent For Content Demand">Sent For Content Demand</option>
       <option value="Sent For Content">Sent For Content</option>
       <option value="Content Completed">Content Completed</option>
       <option value="Content Updated">Content Updated</option>
