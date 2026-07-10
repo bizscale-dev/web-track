@@ -400,17 +400,17 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-lg shrink-0">
                         {member.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="overflow-hidden">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="font-bold text-sm text-slate-900 truncate">{member.name}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-slate-500 font-medium tracking-wide truncate">{member.role}</span>
+                        <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                          <span className="text-xs text-slate-500 font-medium tracking-wide truncate shrink-0">{member.role}</span>
                           {member.email && (
-                            <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded truncate">
+                            <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded truncate max-w-full">
                               {member.email}
                             </span>
                           )}
