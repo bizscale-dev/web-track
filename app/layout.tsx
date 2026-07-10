@@ -16,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
+      <body className="bg-slate-950 text-slate-300 antialiased min-h-screen flex flex-col overflow-x-hidden">
         <AuthProvider>
           <TopAuthBar />
           <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">

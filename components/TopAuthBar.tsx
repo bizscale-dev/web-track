@@ -62,7 +62,7 @@ export default function TopAuthBar() {
             )}
             <button 
               onClick={handleLogout} 
-              className="flex items-center gap-2 text-sm font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 sm:px-4 py-2 rounded-xl border border-rose-200 transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-full hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)]"
             >
               <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Drop Access</span>
             </button>

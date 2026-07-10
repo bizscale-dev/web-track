@@ -48,6 +48,11 @@ export default function BatmanThemeToggle() {
             color: #ffffff !important;
           }
           
+          /* Hide light-mode gradient backgrounds */
+          .fixed.-z-10 {
+            display: none !important;
+          }
+          
           /* Elevated Cards */
           [class*="bg-white"], [class*="bg-slate-50"], [class*="bg-slate-100"], [class*="bg-slate-200"],
           [class*="bg-gray-50"], [class*="bg-gray-100"], [class*="bg-gray-200"] {
