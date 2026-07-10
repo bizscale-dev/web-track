@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -43,11 +43,10 @@ function parsePagesAndNotes(notesText: string, domain: string | null) {
       if (isStopTrigger) {
         collecting = false;
       } else if (line !== "") {
-        // Generate slug
         let slug = line.toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, '') // Remove special chars (e.g. comma in Boise, ID)
+          .replace(/[^a-z0-9\s-]/g, '') 
           .trim()
-          .replace(/\s+/g, '-'); // Replace spaces with hyphens
+          .replace(/\s+/g, '-'); 
 
         const isHome = slug === 'home';
         const pageUrl = isHome ? baseUrl : `${baseUrl}/${slug}`;
@@ -73,6 +72,7 @@ function parsePagesAndNotes(notesText: string, domain: string | null) {
 export default function AddWebsitePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<{ name: string; role: string }[]>([]);
 
   const [formData, setFormData] = useState({
     website_name: "",
@@ -86,6 +86,22 @@ export default function AddWebsitePage() {
     seo_person: "",
     priority: "Normal",
   });
+
+  // Fetch real team members on page load
+  useEffect(() => {
+    async function fetchTeam() {
+      const { data } = await supabase.from("profiles").select("name, role");
+      if (data) {
+        setTeamMembers(data);
+      }
+    }
+    fetchTeam();
+  }, []);
+
+  // Filter team members based on roles (Admins and Managers can be assigned to anything)
+  const developers = teamMembers.filter((m) => ["developer", "admin", "manager"].includes(m.role));
+  const contentWriters = teamMembers.filter((m) => ["content", "admin", "manager"].includes(m.role));
+  const seoPersons = teamMembers.filter((m) => ["seo", "admin", "manager"].includes(m.role));
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -135,7 +151,6 @@ export default function AddWebsitePage() {
     }
 
     if (data) {
-      // If we extracted pages, insert them into website_tasks
       if (pages.length > 0) {
         const tasksToInsert = pages.map(p => ({
           website_id: data.id,
@@ -160,7 +175,6 @@ export default function AddWebsitePage() {
         new_value: "Pending",
       });
 
-      // Trigger n8n webhook securely via Server Action
       triggerN8nWebhook({
         event: 'website_created',
         websiteName: data.website_name,
@@ -200,7 +214,6 @@ export default function AddWebsitePage() {
       </div>
 
       <div className="space-y-6">
-        {/* Basic Info */}
         <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3"><Building className="w-5 h-5" /></div>
@@ -218,7 +231,6 @@ export default function AddWebsitePage() {
           </div>
         </div>
 
-        {/* Credentials */}
         <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-amber-100 text-amber-600 rounded-lg mr-3"><Key className="w-5 h-5" /></div>
@@ -240,7 +252,6 @@ export default function AddWebsitePage() {
           </div>
         </div>
 
-        {/* Team & Priority */}
         <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-purple-100 text-purple-600 rounded-lg mr-3"><Users className="w-5 h-5" /></div>
@@ -250,19 +261,28 @@ export default function AddWebsitePage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Developer</label>
               <select name="developer" value={formData.developer} onChange={handleChange} className={selectCls}>
-                <option value="">Unassigned</option><option value="Ali">Ali</option><option value="Sunny">Sunny</option><option value="John">John</option>
+                <option value="">Unassigned</option>
+                {developers.map((user, i) => (
+                  <option key={`dev-${i}`} value={user.name}>{user.name}</option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Content Writer</label>
               <select name="content_writer" value={formData.content_writer} onChange={handleChange} className={selectCls}>
-                <option value="">Unassigned</option><option value="Sara">Sara</option><option value="Emily">Emily</option>
+                <option value="">Unassigned</option>
+                {contentWriters.map((user, i) => (
+                  <option key={`cw-${i}`} value={user.name}>{user.name}</option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">SEO Person</label>
               <select name="seo_person" value={formData.seo_person} onChange={handleChange} className={selectCls}>
-                <option value="">Unassigned</option><option value="Ahmed">Ahmed</option><option value="Mike">Mike</option>
+                <option value="">Unassigned</option>
+                {seoPersons.map((user, i) => (
+                  <option key={`seo-${i}`} value={user.name}>{user.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -274,7 +294,6 @@ export default function AddWebsitePage() {
           </div>
         </div>
 
-        {/* Notes */}
         <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg mr-3"><FileText className="w-5 h-5" /></div>

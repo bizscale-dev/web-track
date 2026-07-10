@@ -7,7 +7,7 @@ import { useAuth } from "./AuthProvider";
 
 export default function UserProfileSettings({ onClose }: { onClose: () => void }) {
   const { session, name: currentName, email, avatar: currentAvatar } = useAuth();
-  const [newName, setNewName] = useState(currentName);
+  const [newName, setNewName] = useState(currentName || "");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -22,24 +22,20 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
     setMessage(null);
 
     try {
-      // 1. Create a unique file name using their ID and a timestamp
       const fileExt = file.name.split('.').pop();
       const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // 2. Upload to the 'avatars' bucket
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 3. Get the public URL of the uploaded image
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // 4. Update the user's metadata with the new image URL
       const { error: updateError } = await supabase.auth.updateUser({
         data: { avatar_url: publicUrl }
       });
@@ -68,6 +64,28 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
     if (error) {
       setMessage({ type: 'error', text: error.message });
     } else {
+      
+      // --- CASCADE UPDATE LOGIC START ---
+      if (newName !== currentName && currentName) {
+        try {
+          // 1. Update the central profiles table (so "Add Website" dropdowns update)
+          if (session?.user?.id) {
+            await supabase.from("profiles").update({ name: newName }).eq("id", session.user.id);
+          }
+
+          // 2. Cascade update all assigned roles in existing projects
+          await supabase.from("websites").update({ developer: newName }).eq("developer", currentName);
+          await supabase.from("websites").update({ content_writer: newName }).eq("content_writer", currentName);
+          await supabase.from("websites").update({ seo_person: newName }).eq("seo_person", currentName);
+
+          // 3. Update the forensics timeline so past logs match the new identity
+          await supabase.from("website_activity_logs").update({ changed_by_email: newName }).eq("changed_by_email", currentName);
+        } catch (cascadeError) {
+          console.error("Database cascade update failed:", cascadeError);
+        }
+      }
+      // --- CASCADE UPDATE LOGIC END ---
+
       setMessage({ type: 'success', text: "Profile settings saved! (Password updates require next login)." });
       setNewPassword("");
     }
@@ -121,7 +139,7 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
           <form onSubmit={handleUpdate} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Account Email (Unchangeable)</label>
-              <input type="email" disabled value={email} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
+              <input type="email" disabled value={email || ""} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
             </div>
 
             <div>

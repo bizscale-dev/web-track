@@ -1,6 +1,7 @@
 'use server';
 
 import { supabase } from "@/lib/supabase";
+import { createClient } from '@supabase/supabase-js';
 
 const WEBHOOK_URL = 'https://n8n.bizscale.pk/webhook/a5a888cd-8be6-46d4-a641-03c98dd3c8b0';
 
@@ -117,5 +118,60 @@ ${customMessage}`;
   } catch (error) {
     console.error('Webhook server action failed:', error);
     return { success: false, error: String(error) };
+  }
+}
+
+export async function completelyDeleteUser(userId: string) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    return { success: false, error: "Missing Admin database credentials." };
+  }
+
+  // 1. Initialize the Admin Client (Bypasses row level security)
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  try {
+    // 2. Fetch the team member to get their email
+    const { data: member, error: fetchError } = await supabaseAdmin
+      .from('team_members')
+      .select('email')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !member) {
+      throw new Error(fetchError?.message || "Team member not found.");
+    }
+
+    // 3. Find the auth user by email
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) throw listError;
+
+    const authUser = users.find(u => u.email?.toLowerCase() === member.email?.toLowerCase());
+
+    if (authUser) {
+      // 4. Nuke the user from the central Auth vault.
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      if (deleteAuthError) throw deleteAuthError;
+    }
+
+    // 5. Delete from team_members table
+    const { error: deleteDbError } = await supabaseAdmin
+      .from('team_members')
+      .delete()
+      .eq('id', userId);
+
+    if (deleteDbError) throw deleteDbError;
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Admin deletion failed:", error);
+    return { success: false, error: error.message };
   }
 }

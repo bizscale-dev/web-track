@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { WEBSITE_STATUSES } from "@/lib/statuses";
 import { createSecureTeamMember } from "@/app/adminActions";
+import { completelyDeleteUser } from "@/app/actions";
 
 export default function AdminDashboard() {
   const { role, loading } = useAuth();
@@ -105,10 +106,17 @@ export default function AdminDashboard() {
 
   const deleteMember = async (id: string) => {
     if (role !== "admin") return;
-    const confirmDelete = window.confirm("Remove this team member? (Note: This removes them from the visual list, but you must manually delete their auth account in Supabase dashboard to revoke login access).");
+    const confirmDelete = window.confirm("Are you sure? This will completely erase their account and login access.");
     if (!confirmDelete) return;
-    await supabase.from("team_members").delete().eq("id", id);
-    setTeam(team.filter((m) => m.id !== id));
+
+    const response = await completelyDeleteUser(id);
+
+    if (response.success) {
+      alert("Operator completely wiped from the system.");
+      setTeam(team.filter((m) => m.id !== id));
+    } else {
+      alert("Failed to delete user: " + response.error);
+    }
   };
 
   const startEdit = (member: any) => {
