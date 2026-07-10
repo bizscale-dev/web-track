@@ -175,3 +175,38 @@ export async function completelyDeleteUser(userId: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function cascadeNameUpdate(oldName: string, newName: string, userId: string) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    return { success: false, error: "Missing Admin database credentials." };
+  }
+
+  // 1. Initialize the Admin Client to bypass security blocks
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  try {
+    // 2. Force update the public profiles table
+    await supabaseAdmin.from("profiles").update({ name: newName }).eq("id", userId);
+
+    // 3. Force update ALL website cards assigned to this person
+    await supabaseAdmin.from("websites").update({ developer: newName }).eq("developer", oldName);
+    await supabaseAdmin.from("websites").update({ content_writer: newName }).eq("content_writer", oldName);
+    await supabaseAdmin.from("websites").update({ seo_person: newName }).eq("seo_person", oldName);
+
+    // 4. Force update the forensics timeline
+    await supabaseAdmin.from("website_activity_logs").update({ changed_by_email: newName }).eq("changed_by_email", oldName);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Cascade update failed:", error);
+    return { success: false, error: error.message };
+  }
+}

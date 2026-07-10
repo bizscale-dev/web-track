@@ -4,8 +4,11 @@ import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { X, Lock, User, Loader2, CheckCircle2, Camera } from "lucide-react";
 import { useAuth } from "./AuthProvider";
+import { useRouter } from "next/navigation";
+import { cascadeNameUpdate } from "@/app/actions";
 
 export default function UserProfileSettings({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
   const { session, name: currentName, email, avatar: currentAvatar } = useAuth();
   const [newName, setNewName] = useState(currentName || "");
   const [newPassword, setNewPassword] = useState("");
@@ -65,26 +68,17 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
       setMessage({ type: 'error', text: error.message });
     } else {
       
-      // --- CASCADE UPDATE LOGIC START ---
-      if (newName !== currentName && currentName) {
-        try {
-          // 1. Update the central profiles table (so "Add Website" dropdowns update)
-          if (session?.user?.id) {
-            await supabase.from("profiles").update({ name: newName }).eq("id", session.user.id);
-          }
-
-          // 2. Cascade update all assigned roles in existing projects
-          await supabase.from("websites").update({ developer: newName }).eq("developer", currentName);
-          await supabase.from("websites").update({ content_writer: newName }).eq("content_writer", currentName);
-          await supabase.from("websites").update({ seo_person: newName }).eq("seo_person", currentName);
-
-          // 3. Update the forensics timeline so past logs match the new identity
-          await supabase.from("website_activity_logs").update({ changed_by_email: newName }).eq("changed_by_email", currentName);
-        } catch (cascadeError) {
-          console.error("Database cascade update failed:", cascadeError);
+      // --- SERVER-POWERED CASCADE UPDATE ---
+      if (newName !== currentName && currentName && session?.user?.id) {
+        const cascadeRes = await cascadeNameUpdate(currentName, newName, session.user.id);
+        
+        if (!cascadeRes.success) {
+          console.error("Failed to update old cards:", cascadeRes.error);
+        } else {
+          // Force the dashboard to pull the fresh cards with the new names
+          router.refresh();
         }
       }
-      // --- CASCADE UPDATE LOGIC END ---
 
       setMessage({ type: 'success', text: "Profile settings saved! (Password updates require next login)." });
       setNewPassword("");
