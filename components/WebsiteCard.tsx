@@ -53,9 +53,37 @@ export default function WebsiteCard({
         return;
       }
 
-      const diffMs = new Date().getTime() - new Date(startTime).getTime();
-      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+      const start = new Date(startTime);
+      const end = new Date();
+
+      if (start >= end) {
+        setTimeInStage("0h");
+        return;
+      }
+
+      // --- NEW BUSINESS TIME ALGORITHM ---
+      let businessMs = 0;
+      let current = new Date(start);
+
+      while (current < end) {
+        // Look ahead to the next hour boundary, or the end time
+        const nextHour = new Date(current);
+        nextHour.setHours(current.getHours() + 1, 0, 0, 0);
+        const stepEnd = nextHour < end ? nextHour : end;
+
+        const day = current.getDay();
+        
+        // Exclude Saturday (6) and Sunday (0)
+        if (day !== 0 && day !== 6) {
+          businessMs += stepEnd.getTime() - current.getTime();
+        }
+
+        current = stepEnd;
+      }
+
+      const days = Math.floor(businessMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((businessMs / (1000 * 60 * 60)) % 24);
+      // -----------------------------------
       
       if (days > 0) {
         setTimeInStage(`${days}d ${hours}h`);
@@ -89,7 +117,7 @@ export default function WebsiteCard({
               </span>
             ) : null}
 
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 shadow-sm" title="Time spent in current stage">
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 shadow-sm" title="Business time spent in current stage">
               <Clock className="h-3.5 w-3.5" />
               {timeInStage}
             </span>
