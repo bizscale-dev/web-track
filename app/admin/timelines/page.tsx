@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { Activity, Clock, ArrowRight, User as UserIcon, LayoutDashboard, Loader2, ArrowLeft } from "lucide-react";
+import { Activity, Clock, ArrowRight, User as UserIcon, LayoutDashboard, Loader2, ArrowLeft, BarChart3, List } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -17,41 +17,54 @@ type ActivityLog = {
   created_at: string;
   websites: {
     website_name: string;
+    created_at: string;
   } | null;
 };
 
 export default function TimelinesPage() {
   const { role, loading: authLoading } = useAuth();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [holidays, setHolidays] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Tactical toggle for viewing modes
+  const [viewMode, setViewMode] = useState<"timeline" | "velocity">("timeline");
 
   useEffect(() => {
-    async function fetchLogs() {
-      // Fetch the last 100 activity logs, joining the website name
-      const { data, error } = await supabase
+    async function fetchForensicsData() {
+      // Fetch Logs
+      const { data: logsData, error: logsError } = await supabase
         .from("website_activity_logs")
         .select(`
           *,
           websites (
-            website_name
+            website_name,
+            created_at
           )
         `)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(300);
 
-      if (error) {
-        setError(error.message);
+      if (logsError) {
+        setError(logsError.message);
       } else {
-        setLogs(data as ActivityLog[]);
+        setLogs(logsData as ActivityLog[]);
       }
+
+      // Fetch Holidays
+      const { data: holidayData } = await supabase.from("company_holidays").select("date");
+      if (holidayData) {
+        setHolidays(new Set(holidayData.map(h => h.date)));
+      }
+
       setLoading(false);
     }
 
-    fetchLogs();
+    fetchForensicsData();
   }, []);
 
-  // Format date natively without extra libraries
+  // Format date natively
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
@@ -62,6 +75,77 @@ export default function TimelinesPage() {
       hour12: true
     }).format(date);
   };
+
+  // --- THE BUSINESS TIME ENGINE (WITH HOLIDAYS & MINUTE PRECISION) ---
+  const getBusinessTimeElapsed = (startStr: string, endStr: string) => {
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    
+    if (start >= end) return "0m"; // Return minutes as the baseline
+
+    let businessMs = 0;
+    let current = new Date(start);
+
+    while (current < end) {
+      const nextHour = new Date(current);
+      nextHour.setHours(current.getHours() + 1, 0, 0, 0);
+      const stepEnd = nextHour < end ? nextHour : end;
+
+      const day = current.getDay();
+      
+      // Generate YYYY-MM-DD for the holiday check
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, '0');
+      const dd = String(current.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+
+      // Skip Weekends AND Global Holidays
+      if (day !== 0 && day !== 6 && !holidays.has(dateStr)) {
+        businessMs += stepEnd.getTime() - current.getTime();
+      }
+      current = stepEnd;
+    }
+
+    // Extract exact time measurements
+    const days = Math.floor(businessMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((businessMs / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((businessMs / (1000 * 60)) % 60); 
+    
+    // Formatting logic
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+  
+  // --- PIPELINE VELOCITY CALCULATOR ---
+  const groupedVelocity = useMemo(() => {
+    const groups: Record<number, any> = {};
+    
+    const ascendingLogs = [...logs].reverse();
+
+    ascendingLogs.forEach(log => {
+      if (!groups[log.website_id]) {
+        groups[log.website_id] = {
+          website_name: log.websites?.website_name || `Website #${log.website_id}`,
+          last_time: log.websites?.created_at || log.created_at,
+          transitions: []
+        };
+      }
+
+      const timeTaken = getBusinessTimeElapsed(groups[log.website_id].last_time, log.created_at);
+
+      groups[log.website_id].transitions.push({
+        id: log.id,
+        flow: `${log.old_value || 'Creation'} -> ${log.new_value}`,
+        timeTaken: timeTaken,
+        timestamp: log.created_at
+      });
+
+      groups[log.website_id].last_time = log.created_at;
+    });
+
+    return Object.values(groups).sort((a, b) => a.website_name.localeCompare(b.website_name));
+  }, [logs, holidays]);
 
   if (authLoading) {
     return (
@@ -110,7 +194,23 @@ export default function TimelinesPage() {
           </div>
         </div>
 
-        {/* Timeline Feed */}
+        {/* Tactical UI Toggle */}
+        <div className="flex bg-slate-200/50 p-1.5 rounded-2xl mb-6 w-fit mx-auto sm:mx-0">
+          <button 
+            onClick={() => setViewMode("timeline")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === "timeline" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            <List className="w-4 h-4" /> Live Feed
+          </button>
+          <button 
+            onClick={() => setViewMode("velocity")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === "velocity" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            <BarChart3 className="w-4 h-4" /> Velocity Metrics
+          </button>
+        </div>
+
+        {/* Data Container */}
         <div className="bg-white rounded-[24px] shadow-sm border border-slate-200 p-6 sm:p-8 relative">
           
           {loading ? (
@@ -127,7 +227,8 @@ export default function TimelinesPage() {
               <Clock className="w-12 h-12 text-slate-200 mx-auto mb-4" />
               <p className="text-slate-500 font-medium">No activity logged yet.</p>
             </div>
-          ) : (
+          ) : viewMode === "timeline" ? (
+            // --- RAW TIMELINE VIEW ---
             <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
               {logs.map((log) => (
                 <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
@@ -161,6 +262,50 @@ export default function TimelinesPage() {
                       {log.changed_by_email}
                     </div>
                     
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // --- VELOCITY METRICS VIEW ---
+            <div className="space-y-8">
+              {groupedVelocity.map((site, index) => (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm" key={index}>
+                  <div className="bg-slate-950 px-5 py-3">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-blue-400" />
+                      {site.website_name}
+                    </h3>
+                  </div>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                        <tr>
+                          <th className="px-5 py-3 font-semibold uppercase tracking-wider text-xs">Status Flow</th>
+                          <th className="px-5 py-3 font-semibold uppercase tracking-wider text-xs">Time Taken (Biz Hrs)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {site.transitions.map((t: any) => (
+                          <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-5 py-3 font-medium text-slate-700 flex items-center gap-2">
+                              {t.flow.split('->').map((part: string, i: number, arr: string[]) => (
+                                <span key={i} className="flex items-center gap-2">
+                                  <span className={i === 0 ? "text-slate-400" : "text-slate-800"}>{part.trim()}</span>
+                                  {i < arr.length - 1 && <ArrowRight className="w-3 h-3 text-slate-300" />}
+                                </span>
+                              ))}
+                            </td>
+                            <td className="px-5 py-3 text-slate-600">
+                              <span className="inline-flex font-mono text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-md">
+                                {t.timeTaken}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               ))}

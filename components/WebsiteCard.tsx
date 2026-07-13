@@ -25,11 +25,40 @@ export default function WebsiteCard({
 }: WebsiteCardProps) {
   const { role } = useAuth();
   // SPLIT CLEARANCE LOGIC:
-  // Staff can change status. Only Admin/Manager can delete.
   const canManageStatus = role && role !== "user";
   const canDelete = role === "admin" || role === "manager";
   const pageCount = Array.isArray(website.pages) ? website.pages.length : 0;
+  
   const [timeInStage, setTimeInStage] = useState<string>("...");
+  const [holidays, setHolidays] = useState<Set<string>>(new Set());
+
+  // 1. Fetch Holidays & Connect Real-Time Listener
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchHolidays() {
+      const { data } = await supabase.from("company_holidays").select("date");
+      if (data && isMounted) {
+        setHolidays(new Set(data.map(h => h.date)));
+      }
+    }
+    
+    fetchHolidays();
+
+    // The Magic Socket: Dynamically isolated channel name to prevent collision
+    const channelName = `holidays_sync_${website.id}`;
+    const subscription = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'company_holidays' }, () => {
+        fetchHolidays(); // Force instant recalculation
+      })
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(subscription);
+    };
+  }, [website.id]);
 
   // Strict Pipeline Logic
   const currentStatusIndex = WEBSITE_STATUSES.indexOf(website.status || "Pending");
@@ -57,24 +86,27 @@ export default function WebsiteCard({
       const end = new Date();
 
       if (start >= end) {
-        setTimeInStage("0h");
+        setTimeInStage("0m");
         return;
       }
 
-      // --- NEW BUSINESS TIME ALGORITHM ---
+      // --- HIGH PRECISION ENGINE ---
       let businessMs = 0;
       let current = new Date(start);
 
       while (current < end) {
-        // Look ahead to the next hour boundary, or the end time
         const nextHour = new Date(current);
         nextHour.setHours(current.getHours() + 1, 0, 0, 0);
         const stepEnd = nextHour < end ? nextHour : end;
 
         const day = current.getDay();
         
-        // Exclude Saturday (6) and Sunday (0)
-        if (day !== 0 && day !== 6) {
+        const yyyy = current.getFullYear();
+        const mm = String(current.getMonth() + 1).padStart(2, '0');
+        const dd = String(current.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+        
+        if (day !== 0 && day !== 6 && !holidays.has(dateStr)) {
           businessMs += stepEnd.getTime() - current.getTime();
         }
 
@@ -83,17 +115,19 @@ export default function WebsiteCard({
 
       const days = Math.floor(businessMs / (1000 * 60 * 60 * 24));
       const hours = Math.floor((businessMs / (1000 * 60 * 60)) % 24);
-      // -----------------------------------
+      const minutes = Math.floor((businessMs / (1000 * 60)) % 60);
       
       if (days > 0) {
         setTimeInStage(`${days}d ${hours}h`);
+      } else if (hours > 0) {
+        setTimeInStage(`${hours}h ${minutes}m`);
       } else {
-        setTimeInStage(`${hours}h`);
+        setTimeInStage(`${minutes}m`);
       }
     };
 
     fetchTimeInStage();
-  }, [website.status, website.id, website.created_at]);
+  }, [website.status, website.id, website.created_at, holidays]);
 
   return (
     <article className="rounded-[24px] border border-white/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
@@ -117,7 +151,7 @@ export default function WebsiteCard({
               </span>
             ) : null}
 
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 shadow-sm" title="Business time spent in current stage">
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 shadow-sm" title="Time spent in current stage">
               <Clock className="h-3.5 w-3.5" />
               {timeInStage}
             </span>

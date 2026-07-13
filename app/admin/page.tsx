@@ -2,18 +2,18 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Users, Clock, Plus, Trash2, Activity, ShieldAlert, BarChart3, CheckCircle2, Edit2, Save, X, KeyRound, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Clock, Plus, Trash2, Activity, ShieldAlert, BarChart3, CheckCircle2, Edit2, Save, X, KeyRound, Loader2, Calendar } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { WEBSITE_STATUSES } from "@/lib/statuses";
 import { createSecureTeamMember, updateSecureTeamMember } from "@/app/adminActions";
 import { completelyDeleteUser } from "@/app/actions";
+import HolidayCalendar from "@/components/HolidayCalendar";
 
 export default function AdminDashboard() {
   const { role, loading } = useAuth();
   const [team, setTeam] = useState<any[]>([]);
   
-  // New User States
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,10 +21,12 @@ export default function AdminDashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   
-  // Edit States
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("Developer");
+
+  // Modal State
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   const [metrics, setMetrics] = useState({
     completedThisMonth: 0,
@@ -83,7 +85,6 @@ export default function AdminDashboard() {
     setIsCreating(true);
     setCreationError(null);
 
-    // Call our secure server action
     const result = await createSecureTeamMember({
       name,
       email,
@@ -93,7 +94,6 @@ export default function AdminDashboard() {
 
     if (result.success && result.member) {
       setTeam([result.member, ...team]);
-      // Clear form
       setName("");
       setEmail("");
       setPassword("");
@@ -239,7 +239,20 @@ export default function AdminDashboard() {
             <span className="text-xs font-bold tracking-widest uppercase bg-blue-100 text-blue-700 px-3 py-1 rounded-full border border-blue-200 shadow-sm mt-2">Manager</span>
           )}
         </div>
-        <p className="mt-3 text-gray-500 font-medium">Intelligence overview and pipeline forensics.</p>
+        
+        {/* TOP HEADER CONTROLS */}
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <p className="text-gray-500 font-medium">Intelligence overview and pipeline forensics.</p>
+          
+          {role === "admin" && (
+            <button 
+              onClick={() => setShowCalendarModal(true)}
+              className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_10px_30px_rgba(15,23,42,0.18)] hover:-translate-y-0.5 hover:bg-slate-800 transition-all w-fit"
+            >
+              <Calendar className="w-4 h-4" /> Global Calendar
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -433,6 +446,32 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* GLOBAL HOLIDAY CALENDAR MODAL (SHRUNK TO max-w-md) */}
+      {showCalendarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
+          <div className="bg-slate-50 rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-5 py-3 border-b border-slate-200 bg-white">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <h3 className="font-bold text-sm text-slate-900">Manage Exclusions</h3>
+              </div>
+              <button
+                onClick={() => setShowCalendarModal(false)}
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-4 max-h-[85vh] overflow-y-auto">
+              <HolidayCalendar />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
