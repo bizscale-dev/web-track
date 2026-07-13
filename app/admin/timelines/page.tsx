@@ -183,7 +183,7 @@ export default function TimelinesPage() {
             <p className="text-sm text-slate-500 mt-1">Live tracking of all pipeline movements and operator actions.</p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-all">
+            <Link href="/dashboard" className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-all">
               <ArrowLeft className="w-4 h-4" /> CRM
             </Link>
             <Link href="/admin" className="flex items-center gap-2 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all">

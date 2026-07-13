@@ -14,16 +14,18 @@ export default function AdminDashboard() {
   const { role, loading } = useAuth();
   const [team, setTeam] = useState<any[]>([]);
   
+  // New User States - Default to lowercase
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [teamRole, setTeamRole] = useState("Developer");
+  const [teamRole, setTeamRole] = useState("developer"); 
   const [isCreating, setIsCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   
+  // Edit States - Default to lowercase
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editRole, setEditRole] = useState("Developer");
+  const [editRole, setEditRole] = useState("developer");
 
   // Modal State
   const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -58,7 +60,7 @@ export default function AdminDashboard() {
         <ShieldAlert className="w-20 h-20 text-rose-500 mb-6 drop-shadow-[0_0_15px_rgba(244,63,94,0.4)]" />
         <h1 className="text-4xl font-black text-gray-900 mb-2">Clearance Required</h1>
         <p className="text-gray-500 mb-8">You must elevate your access to Manager or Admin to view this sector.</p>
-        <Link href="/" className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">
+        <Link href="/dashboard" className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">
           Return to Main Dashboard
         </Link>
       </main>
@@ -89,7 +91,7 @@ export default function AdminDashboard() {
       name,
       email,
       password,
-      role: teamRole
+      role: teamRole // Now safely sending 'developer', 'manager', etc.
     });
 
     if (result.success && result.member) {
@@ -128,7 +130,7 @@ export default function AdminDashboard() {
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
-    setEditRole("Developer");
+    setEditRole("developer");
   };
 
   const saveEdit = async () => {
@@ -136,7 +138,7 @@ export default function AdminDashboard() {
     
     const response = await updateSecureTeamMember(editingId, {
       name: editName,
-      role: editRole
+      role: editRole // Safely sending lowercase standard role
     });
 
     if (response.success && response.member) {
@@ -240,7 +242,6 @@ export default function AdminDashboard() {
           )}
         </div>
         
-        {/* TOP HEADER CONTROLS */}
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <p className="text-gray-500 font-medium">Intelligence overview and pipeline forensics.</p>
           
@@ -334,10 +335,11 @@ export default function AdminDashboard() {
                   onChange={(e) => setTeamRole(e.target.value)}
                   className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  <option value="Developer">Developer</option>
-                  <option value="Content Writer">Content Writer</option>
-                  <option value="SEO Person">SEO Person</option>
-                  <option value="Manager">Manager</option>
+                  {/* CHANGED: Values are now completely lowercase */}
+                  <option value="developer">Developer</option>
+                  <option value="content_writer">Content Writer</option>
+                  <option value="seo_person">SEO Person</option>
+                  <option value="manager">Manager</option>
                 </select>
               </div>
 
@@ -396,10 +398,12 @@ export default function AdminDashboard() {
                         onChange={(e) => setEditRole(e.target.value)}
                         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                       >
-                        <option value="Developer">Developer</option>
-                        <option value="Content Writer">Content Writer</option>
-                        <option value="SEO Person">SEO Person</option>
-                        <option value="Manager">Manager</option>
+                        {/* CHANGED: Values are now completely lowercase */}
+                        <option value="developer">Developer</option>
+                        <option value="content_writer">Content Writer</option>
+                        <option value="seo_person">SEO Person</option>
+                        <option value="manager">Manager</option>
+                        {member.role === 'admin' && <option value="admin">Admin</option>}
                       </select>
                     </div>
                     <div className="flex justify-end gap-2">
@@ -420,7 +424,10 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="font-bold text-sm text-slate-900 truncate">{member.name}</div>
                         <div className="flex items-center gap-2 mt-0.5 min-w-0">
-                          <span className="text-xs text-slate-500 font-medium tracking-wide truncate shrink-0">{member.role}</span>
+                          {/* Format the display so 'content_writer' shows up nicely as 'Content Writer' */}
+                          <span className="text-xs text-slate-500 font-medium tracking-wide truncate shrink-0 capitalize">
+                            {member.role.replace('_', ' ')}
+                          </span>
                           {member.email && (
                             <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded truncate max-w-full">
                               {member.email}
@@ -447,11 +454,9 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* GLOBAL HOLIDAY CALENDAR MODAL (SHRUNK TO max-w-md) */}
       {showCalendarModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
           <div className="bg-slate-50 rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
             <div className="flex justify-between items-center px-5 py-3 border-b border-slate-200 bg-white">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-blue-600" />
@@ -465,7 +470,6 @@ export default function AdminDashboard() {
               </button>
             </div>
             
-            {/* Modal Body */}
             <div className="p-4 max-h-[85vh] overflow-y-auto">
               <HolidayCalendar />
             </div>

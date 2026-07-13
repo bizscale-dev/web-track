@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText } from "lucide-react";
+import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, LayoutDashboard } from "lucide-react";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -23,7 +23,6 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const router = useRouter();
   
-  // EXTRACTING THE IDENTITY: Now pulls role, name, AND avatar
   const { role, name, avatar } = useAuth(); 
   const [showSettings, setShowSettings] = useState(false);
 
@@ -40,7 +39,6 @@ export default function DashboardClient({
   const [search, setSearch] = useState("");
   const [viewFilter, setViewFilter] = useState<"All" | "Not Started" | "In Progress" | "Completed">("In Progress");
 
-  // --- INTERCEPTOR MODAL STATE ---
   const [demandModal, setDemandModal] = useState({
     isOpen: false,
     websiteId: 0,
@@ -87,16 +85,12 @@ export default function DashboardClient({
     });
   }, [search, viewFilter, websites]);
 
-  // --- 1. THE INTERCEPTOR ---
   async function handleStatusChange(websiteId: number, nextStatus: string) {
     const currentWebsite = websites.find((website) => website.id === websiteId);
     if (!currentWebsite || currentWebsite.status === nextStatus) return;
 
-    // Intercept if it's Content Demand
     if (nextStatus === "Sent For Content Demand") {
-      // Fetch the raw notes from the database
       const { data } = await supabase.from("websites").select("notes").eq("id", websiteId).single();
-      
       setDemandModal({
         isOpen: true,
         websiteId: websiteId,
@@ -104,14 +98,12 @@ export default function DashboardClient({
         notes: data?.notes || "",
         websiteName: currentWebsite.website_name
       });
-      return; // Pause execution here
+      return; 
     }
 
-    // Otherwise, push straight through
     executeStatusChange(websiteId, nextStatus);
   }
 
-  // --- 2. THE EXECUTOR ---
   async function executeStatusChange(websiteId: number, nextStatus: string, customNotes?: string) {
     const currentWebsite = websites.find((website) => website.id === websiteId);
     if (!currentWebsite) return;
@@ -133,7 +125,6 @@ export default function DashboardClient({
     if (!error) {
       const operatorIdentity = name || "Unknown Operator";
 
-      // Log to Forensics Timeline
       const { error: logError } = await supabase
         .from("website_activity_logs")
         .insert({
@@ -147,7 +138,6 @@ export default function DashboardClient({
 
       if (logError) setActivityLogError(logError.message);
 
-      // Send to n8n Webhook, injecting customNotes if they exist
       triggerN8nWebhook({
         event: 'status_changed',
         websiteName: currentWebsite.website_name,
@@ -156,14 +146,13 @@ export default function DashboardClient({
         newStatus: nextStatus,
         websiteId: websiteId,
         changedBy: operatorIdentity,
-        customNotes: customNotes // <-- Injected here
+        customNotes: customNotes
       }).catch(err => console.error("Server action failed:", err));
 
       router.refresh();
       return;
     }
 
-    // Rollback on error
     setWebsites((currentWebsites) =>
       currentWebsites.map((website) =>
         website.id === websiteId ? { ...website, status: previousStatus } : website
@@ -256,11 +245,17 @@ export default function DashboardClient({
               </div>
             )}
 
+            {/* UPGRADED: COMMAND CENTER & ADD WEBSITE BUTTONS */}
             <div className="flex w-full sm:w-auto gap-3">
               {role === "admin" || role === "manager" ? (
-                <Link href="/websites/new" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700">
-                  + Add Website
-                </Link>
+                <>
+                  <Link href="/admin" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:bg-slate-800">
+                    <LayoutDashboard className="w-4 h-4" /> Command Center
+                  </Link>
+                  <Link href="/websites/new" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700">
+                    + Add Website
+                  </Link>
+                </>
               ) : (
                 <div className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-100 border border-slate-200 px-6 text-sm font-semibold text-slate-400 cursor-not-allowed opacity-80" title="Manager clearance required">
                   <Lock className="w-4 h-4" /> Add Website
@@ -349,7 +344,6 @@ export default function DashboardClient({
 
       {showSettings && <UserProfileSettings onClose={() => setShowSettings(false)} />}
 
-      {/* --- THE INTERCEPTOR MODAL --- */}
       {demandModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
           <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
