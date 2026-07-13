@@ -45,12 +45,11 @@ export default function WebsiteCard({
     
     fetchHolidays();
 
-    // The Magic Socket: Dynamically isolated channel name to prevent collision
     const channelName = `holidays_sync_${website.id}`;
     const subscription = supabase
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'company_holidays' }, () => {
-        fetchHolidays(); // Force instant recalculation
+        fetchHolidays(); 
       })
       .subscribe();
 
@@ -60,7 +59,6 @@ export default function WebsiteCard({
     };
   }, [website.id]);
 
-  // Strict Pipeline Logic
   const currentStatusIndex = WEBSITE_STATUSES.indexOf(website.status || "Pending");
   const allowedStatuses = currentStatusIndex !== -1 
     ? WEBSITE_STATUSES.filter((_, index) => Math.abs(index - currentStatusIndex) <= 1)
@@ -90,7 +88,7 @@ export default function WebsiteCard({
         return;
       }
 
-      // --- HIGH PRECISION ENGINE ---
+      // --- SHIFT-BASED PRECISION ENGINE (3 PM - 12 AM) ---
       let businessMs = 0;
       let current = new Date(start);
 
@@ -100,22 +98,33 @@ export default function WebsiteCard({
         const stepEnd = nextHour < end ? nextHour : end;
 
         const day = current.getDay();
+        const currentHour = current.getHours(); // Returns 0-23
         
         const yyyy = current.getFullYear();
         const mm = String(current.getMonth() + 1).padStart(2, '0');
         const dd = String(current.getDate()).padStart(2, '0');
         const dateStr = `${yyyy}-${mm}-${dd}`;
         
-        if (day !== 0 && day !== 6 && !holidays.has(dateStr)) {
+        // 1. Exclude Weekends (0, 6)
+        // 2. Exclude Global Holidays
+        // 3. Exclude Off-Hours (Only count if hour is 15:00 [3 PM] or later)
+        if (day !== 0 && day !== 6 && !holidays.has(dateStr) && currentHour >= 15) {
           businessMs += stepEnd.getTime() - current.getTime();
         }
 
         current = stepEnd;
       }
 
-      const days = Math.floor(businessMs / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((businessMs / (1000 * 60 * 60)) % 24);
-      const minutes = Math.floor((businessMs / (1000 * 60)) % 60);
+      // Redefine 1 Day = 9 Hours (9 * 60 * 60 * 1000)
+      const NINE_HOURS_MS = 9 * 60 * 60 * 1000;
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const ONE_MINUTE_MS = 60 * 1000;
+
+      const days = Math.floor(businessMs / NINE_HOURS_MS);
+      const remainingMs = businessMs % NINE_HOURS_MS;
+      
+      const hours = Math.floor(remainingMs / ONE_HOUR_MS);
+      const minutes = Math.floor((remainingMs % ONE_HOUR_MS) / ONE_MINUTE_MS);
       
       if (days > 0) {
         setTimeInStage(`${days}d ${hours}h`);

@@ -28,12 +28,10 @@ export default function TimelinesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Tactical toggle for viewing modes
   const [viewMode, setViewMode] = useState<"timeline" | "velocity">("timeline");
 
   useEffect(() => {
     async function fetchForensicsData() {
-      // Fetch Logs
       const { data: logsData, error: logsError } = await supabase
         .from("website_activity_logs")
         .select(`
@@ -52,7 +50,6 @@ export default function TimelinesPage() {
         setLogs(logsData as ActivityLog[]);
       }
 
-      // Fetch Holidays
       const { data: holidayData } = await supabase.from("company_holidays").select("date");
       if (holidayData) {
         setHolidays(new Set(holidayData.map(h => h.date)));
@@ -64,7 +61,6 @@ export default function TimelinesPage() {
     fetchForensicsData();
   }, []);
 
-  // Format date natively
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
@@ -76,12 +72,12 @@ export default function TimelinesPage() {
     }).format(date);
   };
 
-  // --- THE BUSINESS TIME ENGINE (WITH HOLIDAYS & MINUTE PRECISION) ---
+  // --- SHIFT-BASED PRECISION ENGINE (3 PM - 12 AM) ---
   const getBusinessTimeElapsed = (startStr: string, endStr: string) => {
     const start = new Date(startStr);
     const end = new Date(endStr);
     
-    if (start >= end) return "0m"; // Return minutes as the baseline
+    if (start >= end) return "0m";
 
     let businessMs = 0;
     let current = new Date(start);
@@ -92,35 +88,37 @@ export default function TimelinesPage() {
       const stepEnd = nextHour < end ? nextHour : end;
 
       const day = current.getDay();
+      const currentHour = current.getHours(); 
       
-      // Generate YYYY-MM-DD for the holiday check
       const yyyy = current.getFullYear();
       const mm = String(current.getMonth() + 1).padStart(2, '0');
       const dd = String(current.getDate()).padStart(2, '0');
       const dateStr = `${yyyy}-${mm}-${dd}`;
 
-      // Skip Weekends AND Global Holidays
-      if (day !== 0 && day !== 6 && !holidays.has(dateStr)) {
+      // Only count if hour is 15:00 (3 PM) or later, and not a weekend/holiday
+      if (day !== 0 && day !== 6 && !holidays.has(dateStr) && currentHour >= 15) {
         businessMs += stepEnd.getTime() - current.getTime();
       }
       current = stepEnd;
     }
 
-    // Extract exact time measurements
-    const days = Math.floor(businessMs / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((businessMs / (1000 * 60 * 60)) % 24);
-    const minutes = Math.floor((businessMs / (1000 * 60)) % 60); 
+    const NINE_HOURS_MS = 9 * 60 * 60 * 1000;
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const ONE_MINUTE_MS = 60 * 1000;
+
+    const days = Math.floor(businessMs / NINE_HOURS_MS);
+    const remainingMs = businessMs % NINE_HOURS_MS;
     
-    // Formatting logic
+    const hours = Math.floor(remainingMs / ONE_HOUR_MS);
+    const minutes = Math.floor((remainingMs % ONE_HOUR_MS) / ONE_MINUTE_MS); 
+    
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
   };
   
-  // --- PIPELINE VELOCITY CALCULATOR ---
   const groupedVelocity = useMemo(() => {
     const groups: Record<number, any> = {};
-    
     const ascendingLogs = [...logs].reverse();
 
     ascendingLogs.forEach(log => {
