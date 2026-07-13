@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Lock, Settings, User as UserIcon } from "lucide-react";
+import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText } from "lucide-react";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -39,6 +39,15 @@ export default function DashboardClient({
   const [deletingWebsiteIds, setDeletingWebsiteIds] = useState<number[]>([]);
   const [search, setSearch] = useState("");
   const [viewFilter, setViewFilter] = useState<"All" | "Not Started" | "In Progress" | "Completed">("In Progress");
+
+  // --- INTERCEPTOR MODAL STATE ---
+  const [demandModal, setDemandModal] = useState({
+    isOpen: false,
+    websiteId: 0,
+    nextStatus: "",
+    notes: "",
+    websiteName: ""
+  });
 
   const filteredWebsites = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -78,9 +87,34 @@ export default function DashboardClient({
     });
   }, [search, viewFilter, websites]);
 
+  // --- 1. THE INTERCEPTOR ---
   async function handleStatusChange(websiteId: number, nextStatus: string) {
     const currentWebsite = websites.find((website) => website.id === websiteId);
     if (!currentWebsite || currentWebsite.status === nextStatus) return;
+
+    // Intercept if it's Content Demand
+    if (nextStatus === "Sent For Content Demand") {
+      // Fetch the raw notes from the database
+      const { data } = await supabase.from("websites").select("notes").eq("id", websiteId).single();
+      
+      setDemandModal({
+        isOpen: true,
+        websiteId: websiteId,
+        nextStatus: nextStatus,
+        notes: data?.notes || "",
+        websiteName: currentWebsite.website_name
+      });
+      return; // Pause execution here
+    }
+
+    // Otherwise, push straight through
+    executeStatusChange(websiteId, nextStatus);
+  }
+
+  // --- 2. THE EXECUTOR ---
+  async function executeStatusChange(websiteId: number, nextStatus: string, customNotes?: string) {
+    const currentWebsite = websites.find((website) => website.id === websiteId);
+    if (!currentWebsite) return;
 
     const previousStatus = currentWebsite.status;
     setStatusError(null);
@@ -99,7 +133,7 @@ export default function DashboardClient({
     if (!error) {
       const operatorIdentity = name || "Unknown Operator";
 
-      // 1. Log to Forensics Timeline
+      // Log to Forensics Timeline
       const { error: logError } = await supabase
         .from("website_activity_logs")
         .insert({
@@ -113,8 +147,7 @@ export default function DashboardClient({
 
       if (logError) setActivityLogError(logError.message);
 
-      // 2. Send the RAW data to Server Action
-      // (actions.ts will intercept this, fetch the pages, format the message, and send to n8n)
+      // Send to n8n Webhook, injecting customNotes if they exist
       triggerN8nWebhook({
         event: 'status_changed',
         websiteName: currentWebsite.website_name,
@@ -122,14 +155,15 @@ export default function DashboardClient({
         oldStatus: previousStatus,
         newStatus: nextStatus,
         websiteId: websiteId,
-        changedBy: operatorIdentity
+        changedBy: operatorIdentity,
+        customNotes: customNotes // <-- Injected here
       }).catch(err => console.error("Server action failed:", err));
 
       router.refresh();
       return;
     }
 
-    // ... rollback on error
+    // Rollback on error
     setWebsites((currentWebsites) =>
       currentWebsites.map((website) =>
         website.id === websiteId ? { ...website, status: previousStatus } : website
@@ -185,12 +219,9 @@ export default function DashboardClient({
 
           <div className="flex flex-col gap-4 lg:items-end">
             
-            {/* Show Profile Panel ONLY if logged in. Remove redundant login link. */}
             {role !== "user" && (
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end px-2">
                 <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-full pl-1.5 pr-4 py-1.5 shadow-sm">
-                  
-                  {/* REAL PROFILE PICTURE LOGIC */}
                   <button 
                     onClick={() => setShowSettings(true)}
                     className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center hover:opacity-80 transition shrink-0 overflow-hidden"
@@ -225,7 +256,6 @@ export default function DashboardClient({
               </div>
             )}
 
-            {/* STRICT COMMAND-LEVEL ACCESS FOR ADDING WEBSITES */}
             <div className="flex w-full sm:w-auto gap-3">
               {role === "admin" || role === "manager" ? (
                 <Link href="/websites/new" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700">
@@ -318,6 +348,57 @@ export default function DashboardClient({
       </div>
 
       {showSettings && <UserProfileSettings onClose={() => setShowSettings(false)} />}
+
+      {/* --- THE INTERCEPTOR MODAL --- */}
+      {demandModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <h3 className="font-black text-lg text-slate-900">Content Demand: {demandModal.websiteName}</h3>
+              </div>
+              <button 
+                onClick={() => setDemandModal({ ...demandModal, isOpen: false })} 
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-slate-600 mb-4 bg-blue-50 border border-blue-100 p-3 rounded-xl">
+                Edit the text below to specify what pages/content Ammar needs. <br/>
+                <span className="font-bold text-blue-800">Note: This will NOT overwrite your original notes in the database.</span>
+              </p>
+              
+              <textarea 
+                className="w-full h-64 p-4 text-sm text-slate-700 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-none shadow-inner"
+                value={demandModal.notes}
+                onChange={(e) => setDemandModal({ ...demandModal, notes: e.target.value })}
+                placeholder="List the target pages here..."
+              />
+              
+              <div className="flex justify-end gap-3 mt-6">
+                <button 
+                  onClick={() => setDemandModal({ ...demandModal, isOpen: false })} 
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    executeStatusChange(demandModal.websiteId, demandModal.nextStatus, demandModal.notes);
+                    setDemandModal({ ...demandModal, isOpen: false });
+                  }} 
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all"
+                >
+                  Confirm & Notify Ammar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

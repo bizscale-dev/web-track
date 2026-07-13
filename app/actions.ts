@@ -20,11 +20,12 @@ const statusEmojis: Record<string, string> = {
 export async function triggerN8nWebhook(payload: {
   event: string;
   websiteName: string;
-  domain: string | null;
-  oldStatus: string | null;
+  domain: string;
+  oldStatus: string;
   newStatus: string;
-  websiteId?: number;
-  changedBy?: string; // Tracking the operator
+  websiteId: number;
+  changedBy: string;
+  customNotes?: string;
 }) {
   if (!WEBHOOK_URL) return { success: false, error: 'No webhook URL configured' };
 
@@ -43,7 +44,7 @@ export async function triggerN8nWebhook(payload: {
 
   const cleanName = payload.websiteName.trim();
   const cleanDomain = payload.domain || 'N/A';
-  const operator = payload.changedBy || 'System'; // Default fallback
+  const operator = payload.changedBy || 'System';
 
   // 1. Generate Localized Timestamp
   const timestamp = new Date().toLocaleString('en-US', {
@@ -68,14 +69,13 @@ export async function triggerN8nWebhook(payload: {
       break;
     case 'Sent For Content Demand':
       mention = `<users/105177322178619127353>\n`; // Ammar
-      customMessage = `Content demand to be generated for this site.`;
+      const demandNotes = payload.customNotes ? payload.customNotes : '*(No pages specified)*';
+      customMessage = `Content demand requirements are needed for this site.\n\n*Target Pages / Notes:*\n${demandNotes}`;
       break;
     case 'Sent For Content':
       mention = `<users/105573790640479430955>\n`; // Haris
-
       let pagesListStr = '*(No pages found in the database for this website)*';
       if (targetWebsiteId) {
-        // Querying from website_tasks as per your original code
         const { data: tasks } = await supabase
           .from('website_tasks')
           .select('title, url')
@@ -111,14 +111,19 @@ export async function triggerN8nWebhook(payload: {
       customMessage = `Status changed from ${payload.oldStatus} to ${payload.newStatus}.`;
   }
 
-  // 3. Assemble the Final String (Using single * for Google Chat bolding)
-  const formattedMessage = `${mention}*Business Name:* ${cleanName}
+  // 3. Conditionally Inject the URL
+  // Exclude URL for Domain Connection and Completed stages
+  const showUrl = !['Domain Connection', 'Completed'].includes(payload.newStatus);
+  const urlLine = showUrl ? `\n*URL:* ${cleanDomain}` : '';
+
+  // 4. Assemble the Final String
+  const formattedMessage = `${mention}*Business Name:* ${cleanName}${urlLine}
 *Status Changed By:* ${operator}
 ⏱️ *Time:* ${timestamp}
 
 ${customMessage}`;
 
-  // 4. Fire Payload to n8n
+  // 5. Fire Payload to n8n
   try {
     const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
@@ -153,7 +158,6 @@ export async function completelyDeleteUser(userId: string) {
     return { success: false, error: "Missing Admin database credentials." };
   }
 
-  // 1. Initialize the Admin Client (Bypasses row level security)
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -162,7 +166,6 @@ export async function completelyDeleteUser(userId: string) {
   });
 
   try {
-    // 2. Fetch the team member to get their email
     const { data: member, error: fetchError } = await supabaseAdmin
       .from('team_members')
       .select('email')
@@ -173,19 +176,16 @@ export async function completelyDeleteUser(userId: string) {
       throw new Error(fetchError?.message || "Team member not found.");
     }
 
-    // 3. Find the auth user by email
     const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     if (listError) throw listError;
 
     const authUser = users.find(u => u.email?.toLowerCase() === member.email?.toLowerCase());
 
     if (authUser) {
-      // 4. Nuke the user from the central Auth vault.
       const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(authUser.id);
       if (deleteAuthError) throw deleteAuthError;
     }
 
-    // 5. Delete from team_members table
     const { error: deleteDbError } = await supabaseAdmin
       .from('team_members')
       .delete()
@@ -208,7 +208,6 @@ export async function cascadeNameUpdate(oldName: string, newName: string, userId
     return { success: false, error: "Missing Admin database credentials." };
   }
 
-  // 1. Initialize the Admin Client to bypass security blocks
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -217,11 +216,9 @@ export async function cascadeNameUpdate(oldName: string, newName: string, userId
   });
 
   try {
-    // 2. Fetch user details from auth vault to get email
     const { data: { user }, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
     if (userError || !user) throw new Error(userError?.message || "Auth user not found");
 
-    // 3. Force update the team_members table (instead of profiles) using email matching
     if (user.email) {
       const { error: teamError } = await supabaseAdmin
         .from("team_members")
@@ -230,7 +227,6 @@ export async function cascadeNameUpdate(oldName: string, newName: string, userId
       if (teamError) throw teamError;
     }
 
-    // 4. Force update ALL website cards assigned to this person
     const { error: devError } = await supabaseAdmin.from("websites").update({ developer: newName }).eq("developer", oldName);
     if (devError) throw devError;
 
@@ -240,7 +236,6 @@ export async function cascadeNameUpdate(oldName: string, newName: string, userId
     const { error: seoError } = await supabaseAdmin.from("websites").update({ seo_person: newName }).eq("seo_person", oldName);
     if (seoError) throw seoError;
 
-    // 5. Force update the forensics timeline
     const { error: logError } = await supabaseAdmin.from("website_activity_logs").update({ changed_by_email: newName }).eq("changed_by_email", oldName);
     if (logError) throw logError;
 
