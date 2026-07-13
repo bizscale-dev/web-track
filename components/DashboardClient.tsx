@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, LayoutDashboard } from "lucide-react";
+import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText } from "lucide-react";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -91,6 +91,7 @@ export default function DashboardClient({
 
     if (nextStatus === "Sent For Content Demand") {
       const { data } = await supabase.from("websites").select("notes").eq("id", websiteId).single();
+      
       setDemandModal({
         isOpen: true,
         websiteId: websiteId,
@@ -245,17 +246,11 @@ export default function DashboardClient({
               </div>
             )}
 
-            {/* UPGRADED: COMMAND CENTER & ADD WEBSITE BUTTONS */}
             <div className="flex w-full sm:w-auto gap-3">
               {role === "admin" || role === "manager" ? (
-                <>
-                  <Link href="/admin" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:bg-slate-800">
-                    <LayoutDashboard className="w-4 h-4" /> Command Center
-                  </Link>
-                  <Link href="/websites/new" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700">
-                    + Add Website
-                  </Link>
-                </>
+                <Link href="/websites/new" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700">
+                  + Add Website
+                </Link>
               ) : (
                 <div className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-100 border border-slate-200 px-6 text-sm font-semibold text-slate-400 cursor-not-allowed opacity-80" title="Manager clearance required">
                   <Lock className="w-4 h-4" /> Add Website

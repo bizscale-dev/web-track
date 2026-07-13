@@ -10,6 +10,9 @@ export default function TopAuthBar() {
   const { role } = useAuth();
   const pathname = usePathname();
 
+  // THE INTERCEPTOR: Hide the top bar entirely on the login page
+  if (pathname === '/') return null;
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/"; // Force a hard reset of the application state
@@ -50,12 +53,13 @@ export default function TopAuthBar() {
       {/* Right Side: Actions & Secure Login Route */}
       <div className="flex items-center gap-4">
         {role === "user" ? (
-          <Link href="/login" className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm">
+          <Link href="/" className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm">
             <Lock className="w-4 h-4" /> Secure Login
           </Link>
         ) : (
           <div className="flex items-center gap-2 sm:gap-3">
-            {pathname !== "/admin" && pathname !== "/admin/timelines" && role === "admin" && (
+            {/* UPGRADED: Allows both Admins and Managers to see the Command Center link */}
+            {pathname !== "/admin" && pathname !== "/admin/timelines" && (role === "admin" || role === "manager") && (
               <Link href="/admin" className="hidden sm:flex items-center gap-2 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl border border-blue-200 transition-all shadow-sm">
                 <LayoutDashboard className="w-4 h-4" /> Command Center
               </Link>
