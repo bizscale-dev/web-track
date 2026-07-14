@@ -68,13 +68,16 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
       setMessage({ type: 'error', text: error.message });
     } else {
       
-      // --- SERVER-POWERED CASCADE UPDATE ---
-      if (newName !== currentName && currentName && session?.user?.id) {
-        const cascadeRes = await cascadeNameUpdate(currentName, newName, session.user.id);
-        
-        if (!cascadeRes.success) {
-          console.error("Failed to update old cards:", cascadeRes.error);
-        } else {
+            // --- SERVER-POWERED CASCADE UPDATE ---
+            if (newName !== currentName && currentName && session?.user?.id) {
+              // THE FIX: Add the unknown bridge to strictly type the Server Action response
+      const cascadeRes = (await cascadeNameUpdate(currentName, newName, session.user.id)) as unknown as { success: boolean; error?: string };
+
+      if (!cascadeRes.success) {
+        console.error("Failed to update old cards:", cascadeRes.error);
+      } else {
+        // Force the dashboard to pull the fresh cards with the new names
+      // ... rest of your code ...
           // Force the dashboard to pull the fresh cards with the new names
           router.refresh();
         }
