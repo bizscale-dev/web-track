@@ -87,10 +87,11 @@ export default function AddWebsitePage() {
     priority: "Normal",
   });
 
-  // Fetch real team members on page load
+  // 1. FIXED: Pointed query to the secure "team_members" vault
   useEffect(() => {
     async function fetchTeam() {
-      const { data } = await supabase.from("profiles").select("name, role");
+      const { data, error } = await supabase.from("team_members").select("name, role");
+      if (error) console.error("Error fetching team:", error);
       if (data) {
         setTeamMembers(data);
       }
@@ -98,10 +99,10 @@ export default function AddWebsitePage() {
     fetchTeam();
   }, []);
 
-  // Filter team members based on roles (Admins and Managers can be assigned to anything)
-  const developers = teamMembers.filter((m) => ["developer", "admin", "manager"].includes(m.role));
-  const contentWriters = teamMembers.filter((m) => ["content", "admin", "manager"].includes(m.role));
-  const seoPersons = teamMembers.filter((m) => ["seo", "admin", "manager"].includes(m.role));
+    // 2. FIXED: Aligned strings with the new lowercase database standards
+  const developers = teamMembers.filter((m) => m.role === "developer");
+  const contentWriters = teamMembers.filter((m) => m.role === "content_writer");
+  const seoPersons = teamMembers.filter((m) => m.role === "seo_person");
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -197,7 +198,7 @@ export default function AddWebsitePage() {
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard

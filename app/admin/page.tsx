@@ -228,7 +228,7 @@ export default function AdminDashboard() {
   return (
     <main className="p-4 sm:p-8 max-w-7xl mx-auto w-full">
       <div className="mb-8">
-        <Link href="/" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 mb-4 transition-colors">
+        <Link href="/dashboard" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Main Dashboard
         </Link>
         <div className="flex items-center gap-4">
