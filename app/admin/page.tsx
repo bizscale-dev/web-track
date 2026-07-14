@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Users, Clock, Plus, Trash2, Activity, ShieldAlert, BarChart3, CheckCircle2, Edit2, Save, X, KeyRound, Loader2, Calendar } from "lucide-react";
+import { ArrowLeft, Users, Clock, Plus, Trash2, Activity, ShieldAlert, BarChart3, CheckCircle2, Edit2, Save, X, KeyRound, Loader2, Calendar, Bell, AtSign } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { WEBSITE_STATUSES } from "@/lib/statuses";
@@ -10,11 +10,21 @@ import { createSecureTeamMember, updateSecureTeamMember } from "@/app/adminActio
 import { completelyDeleteUser } from "@/app/actions";
 import HolidayCalendar from "@/components/HolidayCalendar";
 
+const MENTION_EVENTS = ["Website Created", ...WEBSITE_STATUSES];
+
+// The internal mapping of your core team and their exact Google Chat IDs
+const KNOWN_OPERATORS = [
+  { name: "Usman", id: "<users/102335722105092363033>", role: "Director" },
+  { name: "Hussain", id: "<users/116242269621779042739>", role: "Manager" },
+  { name: "Ammar", id: "<users/105177322178619127353>", role: "SEO Person" },
+  { name: "Haris", id: "<users/105573790640479430955>", role: "Content Writer" }
+];
+
 export default function AdminDashboard() {
   const { role, loading } = useAuth();
   const [team, setTeam] = useState<any[]>([]);
   
-  // New User States - Default to lowercase
+  // User States
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,13 +32,17 @@ export default function AdminDashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   
-  // Edit States - Default to lowercase
+  // Edit States
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("developer");
 
-  // Modal State
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+
+  // Mentions State
+  const [activeEvent, setActiveEvent] = useState<string>(MENTION_EVENTS[0]);
+  const [mentions, setMentions] = useState<Record<string, string>>({});
+  const [isSavingMentions, setIsSavingMentions] = useState(false);
 
   const [metrics, setMetrics] = useState({
     completedThisMonth: 0,
@@ -40,16 +54,57 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (role !== "user") {
       fetchTeam();
+      fetchMentions();
       calculateMetrics();
     }
   }, [role]);
+
+  const fetchMentions = async () => {
+    const { data } = await supabase.from("status_mentions").select("*");
+    if (data) {
+      const mentionsMap: Record<string, string> = {};
+      data.forEach(row => {
+        mentionsMap[row.status] = row.mention_string;
+      });
+      setMentions(mentionsMap);
+    }
+  };
+
+  const toggleOperator = (operatorId: string) => {
+    setMentions(prev => {
+      const currentString = prev[activeEvent] || "";
+      let newString = "";
+      
+      // If the ID is already in the string, remove it. If not, add it.
+      if (currentString.includes(operatorId)) {
+        newString = currentString.replace(operatorId, "").trim().replace(/\s+/g, " ");
+      } else {
+        newString = (currentString + " " + operatorId).trim();
+      }
+      
+      return { ...prev, [activeEvent]: newString };
+    });
+  };
+
+  const saveMentions = async () => {
+    setIsSavingMentions(true);
+    
+    const upsertData = MENTION_EVENTS.map(status => ({
+      status: status,
+      mention_string: mentions[status] || ""
+    }));
+
+    const { error } = await supabase.from("status_mentions").upsert(upsertData);
+    
+    setIsSavingMentions(false);
+    if (error) alert("Failed to save mentions: " + error.message);
+  };
 
   if (loading) {
     return (
       <main className="p-8 max-w-7xl mx-auto w-full min-h-[60vh] flex flex-col items-center justify-center">
         <Loader2 className="w-20 h-20 animate-spin text-blue-600 mb-6" />
         <h1 className="text-3xl font-black text-gray-900 mb-2">Decrypting session...</h1>
-        <p className="text-gray-500">Checking your access level before loading Command Center.</p>
       </main>
     );
   }
@@ -57,12 +112,9 @@ export default function AdminDashboard() {
   if (role === "user") {
     return (
       <main className="p-8 max-w-7xl mx-auto w-full min-h-[60vh] flex flex-col items-center justify-center">
-        <ShieldAlert className="w-20 h-20 text-rose-500 mb-6 drop-shadow-[0_0_15px_rgba(244,63,94,0.4)]" />
+        <ShieldAlert className="w-20 h-20 text-rose-500 mb-6" />
         <h1 className="text-4xl font-black text-gray-900 mb-2">Clearance Required</h1>
-        <p className="text-gray-500 mb-8">You must elevate your access to Manager or Admin to view this sector.</p>
-        <Link href="/dashboard" className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">
-          Return to Main Dashboard
-        </Link>
+        <Link href="/" className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">Return to Main Dashboard</Link>
       </main>
     );
   }
@@ -75,72 +127,49 @@ export default function AdminDashboard() {
   const generatePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
     let autoPass = "";
-    for (let i = 0; i < 12; i++) {
-      autoPass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    for (let i = 0; i < 12; i++) autoPass += chars.charAt(Math.floor(Math.random() * chars.length));
     setPassword(autoPass);
   };
 
-  const addSecureMember = async () => {
+const addSecureMember = async () => {
     if (!name.trim() || !email.trim() || !password.trim() || role !== "admin") return;
-    
     setIsCreating(true);
-    setCreationError(null);
-
-    const result = await createSecureTeamMember({
-      name,
-      email,
-      password,
-      role: teamRole // Now safely sending 'developer', 'manager', etc.
-    });
-
+    
+    // THE FIX: Add 'unknown' to bridge the void gap
+    const result = (await createSecureTeamMember({ name, email, password, role: teamRole })) as unknown as { success: boolean; member?: any; error?: string };
+    
     if (result.success && result.member) {
       setTeam([result.member, ...team]);
-      setName("");
-      setEmail("");
-      setPassword("");
+      setName(""); setEmail(""); setPassword("");
     } else {
       setCreationError(result.error || "Failed to create account.");
     }
-    
     setIsCreating(false);
   };
 
   const deleteMember = async (id: string) => {
     if (role !== "admin") return;
-    const confirmDelete = window.confirm("Are you sure? This will completely erase their account and login access.");
-    if (!confirmDelete) return;
-
-    const response = await completelyDeleteUser(id);
-
+    if (!window.confirm("Are you sure? This will completely erase their account.")) return;
+    
+    // THE FIX: Add 'unknown' to bridge the void gap
+    const response = (await completelyDeleteUser(id)) as unknown as { success: boolean; error?: string };
+    
     if (response.success) {
-      alert("Operator completely wiped from the system.");
       setTeam(team.filter((m) => m.id !== id));
     } else {
       alert("Failed to delete user: " + response.error);
     }
   };
 
-  const startEdit = (member: any) => {
-    setEditingId(member.id);
-    setEditName(member.name);
-    setEditRole(member.role);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditName("");
-    setEditRole("developer");
-  };
+  const startEdit = (member: any) => { setEditingId(member.id); setEditName(member.name); setEditRole(member.role); };
+  const cancelEdit = () => { setEditingId(null); setEditName(""); setEditRole("developer"); };
 
   const saveEdit = async () => {
     if (!editName.trim() || role !== "admin" || !editingId) return;
     
-    const response = await updateSecureTeamMember(editingId, {
-      name: editName,
-      role: editRole // Safely sending lowercase standard role
-    });
-
+    // THE FIX: Add 'unknown' to bridge the void gap
+    const response = (await updateSecureTeamMember(editingId, { name: editName, role: editRole })) as unknown as { success: boolean; member?: any; error?: string };
+    
     if (response.success && response.member) {
       setTeam(team.map(t => t.id === editingId ? response.member : t));
       setEditingId(null);
@@ -148,7 +177,6 @@ export default function AdminDashboard() {
       alert("Error updating member: " + response.error);
     }
   };
-
   const filteredTeam = team.filter((member) => 
     member.name.toLowerCase().includes(name.toLowerCase()) || 
     (member.email && member.email.toLowerCase().includes(name.toLowerCase()))
@@ -184,9 +212,7 @@ export default function AdminDashboard() {
       const completedLog = siteLogs.find((l: any) => l.new_value === "Completed");
       if (completedLog) {
         const logDate = new Date(completedLog.created_at);
-        if (logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear) {
-          completedCount++;
-        }
+        if (logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear) completedCount++;
       }
 
       const sentLog = siteLogs.find((l: any) => l.new_value === "Sent For Content");
@@ -195,18 +221,11 @@ export default function AdminDashboard() {
 
       if (sentLog && contentCompLog) {
         const diff = new Date(contentCompLog.created_at).getTime() - new Date(sentLog.created_at).getTime();
-        if (diff > 0) {
-          contentToCompTotal += diff;
-          contentToCompCount++;
-        }
+        if (diff > 0) { contentToCompTotal += diff; contentToCompCount++; }
       }
-
       if (contentCompLog && contentUpdLog) {
         const diff = new Date(contentUpdLog.created_at).getTime() - new Date(contentCompLog.created_at).getTime();
-        if (diff > 0) {
-          compToUpdTotal += diff;
-          compToUpdCount++;
-        }
+        if (diff > 0) { compToUpdTotal += diff; compToUpdCount++; }
       }
     });
 
@@ -232,24 +251,17 @@ export default function AdminDashboard() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Main Dashboard
         </Link>
         <div className="flex items-center gap-4">
-          <h1 className="text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">
-            Command Center
-          </h1>
+          <h1 className="text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">Command Center</h1>
           {role === "admin" ? (
             <span className="text-xs font-bold tracking-widest uppercase bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200 shadow-sm mt-2">Admin</span>
           ) : (
             <span className="text-xs font-bold tracking-widest uppercase bg-blue-100 text-blue-700 px-3 py-1 rounded-full border border-blue-200 shadow-sm mt-2">Manager</span>
           )}
         </div>
-        
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <p className="text-gray-500 font-medium">Intelligence overview and pipeline forensics.</p>
-          
           {role === "admin" && (
-            <button 
-              onClick={() => setShowCalendarModal(true)}
-              className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_10px_30px_rgba(15,23,42,0.18)] hover:-translate-y-0.5 hover:bg-slate-800 transition-all w-fit"
-            >
+            <button onClick={() => setShowCalendarModal(true)} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all w-fit">
               <Calendar className="w-4 h-4" /> Global Calendar
             </button>
           )}
@@ -257,7 +269,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Analytics Section */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex items-center justify-between relative overflow-hidden group">
@@ -269,9 +281,7 @@ export default function AdminDashboard() {
             </div>
             
             <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm relative overflow-hidden group">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center z-10 relative">
-                <Clock className="w-4 h-4 mr-2" /> Average Timelines
-              </h2>
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center z-10 relative"><Clock className="w-4 h-4 mr-2" /> Average Timelines</h2>
               <div className="space-y-4 z-10 relative">
                 <div className="flex justify-between items-center text-sm border-b border-slate-100 pb-2">
                   <span className="text-slate-600 font-medium">Sent <span className="text-slate-300 mx-1">→</span> Content Completed</span>
@@ -287,14 +297,9 @@ export default function AdminDashboard() {
 
           <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-2xl shadow-sm">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-slate-900 flex items-center">
-                <BarChart3 className="w-6 h-6 mr-3 text-blue-600" /> Pipeline Status
-              </h2>
-              <Link href="/admin/timelines" className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
-                <Activity className="w-4 h-4" /> Forensics
-              </Link>
+              <h2 className="text-xl font-bold text-slate-900 flex items-center"><BarChart3 className="w-6 h-6 mr-3 text-blue-600" /> Pipeline Status</h2>
+              <Link href="/admin/timelines" className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"><Activity className="w-4 h-4" /> Forensics</Link>
             </div>
-            
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {WEBSITE_STATUSES.map(status => (
                 <div key={status} className="bg-slate-50 border border-slate-200 p-4 rounded-xl hover:shadow-md hover:border-blue-300 transition-all flex flex-col justify-between group">
@@ -304,9 +309,70 @@ export default function AdminDashboard() {
               ))}
             </div>
           </div>
+
+          {/* ADVANCED CHECKBOX MENTIONS UI */}
+          <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-2xl shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 flex items-center mb-1">
+                  <Bell className="w-6 h-6 mr-3 text-indigo-600" /> Chat Integrations
+                </h2>
+                <p className="text-xs text-slate-500">Select which operators receive Google Chat pings during these pipeline events.</p>
+              </div>
+              <button 
+                onClick={saveMentions}
+                disabled={isSavingMentions}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-50 shrink-0"
+              >
+                {isSavingMentions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Pings
+              </button>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="w-full sm:w-1/3">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Event Trigger</label>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl max-h-[300px] overflow-y-auto scrollbar-thin p-2 space-y-1">
+                  {MENTION_EVENTS.map(event => (
+                    <button 
+                      key={event}
+                      onClick={() => setActiveEvent(event)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeEvent === event ? "bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-sm" : "text-slate-600 hover:bg-white border border-transparent"}`}
+                    >
+                      {event}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-full sm:w-2/3">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  Active Operators <AtSign className="w-3 h-3" />
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {KNOWN_OPERATORS.map(operator => {
+                    const isSelected = (mentions[activeEvent] || "").includes(operator.id);
+                    return (
+                      <label key={operator.name} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isSelected ? "bg-indigo-50 border-indigo-200 shadow-sm" : "bg-white border-slate-200 hover:border-indigo-300"}`}>
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={isSelected}
+                          onChange={() => toggleOperator(operator.id)}
+                        />
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-bold text-slate-900 truncate">{operator.name}</span>
+                          <span className="text-[10px] uppercase text-slate-500 font-semibold truncate tracking-wider">{operator.role}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Personnel Management Section */}
+        {/* RIGHT COLUMN: Personnel Management Section */}
         <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-2xl shadow-sm flex flex-col overflow-hidden">
           <h2 className="text-xl font-bold text-slate-900 flex items-center mb-6">
             <Users className="w-6 h-6 mr-3 text-blue-600" /> Personnel Vault
@@ -315,65 +381,23 @@ export default function AdminDashboard() {
           {role === "admin" && (
             <div className="flex flex-col gap-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Issue New Credentials</h3>
-              
-              {creationError && (
-                <div className="p-2 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg">
-                  {creationError}
-                </div>
-              )}
-
+              {creationError && <div className="p-2 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg">{creationError}</div>}
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <select
-                  value={teamRole}
-                  onChange={(e) => setTeamRole(e.target.value)}
-                  className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  {/* CHANGED: Values are now completely lowercase */}
+                <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <select value={teamRole} onChange={(e) => setTeamRole(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                   <option value="developer">Developer</option>
                   <option value="content_writer">Content Writer</option>
                   <option value="seo_person">SEO Person</option>
                   <option value="manager">Manager</option>
                 </select>
               </div>
-
-              <input
-                type="email"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-
+              <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-3 pr-16 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={generatePassword}
-                    className="absolute right-2 top-[5px] px-2 py-1 bg-slate-200 text-slate-700 text-xs font-bold rounded hover:bg-slate-300 transition"
-                  >
-                    Auto
-                  </button>
+                  <input type="text" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-3 pr-16 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                  <button type="button" onClick={generatePassword} className="absolute right-2 top-[5px] px-2 py-1 bg-slate-200 text-slate-700 text-xs font-bold rounded hover:bg-slate-300 transition">Auto</button>
                 </div>
-                <button
-                  type="button"
-                  onClick={addSecureMember}
-                  disabled={!name.trim() || !email.trim() || !password.trim() || isCreating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm flex items-center justify-center shrink-0 w-[100px]"
-                >
+                <button type="button" onClick={addSecureMember} disabled={!name.trim() || !email.trim() || !password.trim() || isCreating} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm flex items-center justify-center shrink-0 w-[100px]">
                   {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deploy"}
                 </button>
               </div>
@@ -383,22 +407,11 @@ export default function AdminDashboard() {
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
             {filteredTeam.map((member) => (
               <div key={member.id} className="p-3 bg-white border border-slate-200 rounded-xl group hover:border-blue-300 hover:shadow-sm transition-all">
-                
                 {editingId === member.id ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-2">
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      <select
-                        value={editRole}
-                        onChange={(e) => setEditRole(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                      >
-                        {/* CHANGED: Values are now completely lowercase */}
+                      <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      <select value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
                         <option value="developer">Developer</option>
                         <option value="content_writer">Content Writer</option>
                         <option value="seo_person">SEO Person</option>
@@ -407,12 +420,8 @@ export default function AdminDashboard() {
                       </select>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button onClick={saveEdit} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-md text-xs font-bold transition">
-                        <Save className="w-3.5 h-3.5" /> Save
-                      </button>
-                      <button onClick={cancelEdit} className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-xs font-bold transition">
-                        <X className="w-3.5 h-3.5" /> Cancel
-                      </button>
+                      <button onClick={saveEdit} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-md text-xs font-bold transition"><Save className="w-3.5 h-3.5" /> Save</button>
+                      <button onClick={cancelEdit} className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-xs font-bold transition"><X className="w-3.5 h-3.5" /> Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -424,26 +433,15 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="font-bold text-sm text-slate-900 truncate">{member.name}</div>
                         <div className="flex items-center gap-2 mt-0.5 min-w-0">
-                          {/* Format the display so 'content_writer' shows up nicely as 'Content Writer' */}
-                          <span className="text-xs text-slate-500 font-medium tracking-wide truncate shrink-0 capitalize">
-                            {member.role.replace('_', ' ')}
-                          </span>
-                          {member.email && (
-                            <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded truncate max-w-full">
-                              {member.email}
-                            </span>
-                          )}
+                          <span className="text-xs text-slate-500 font-medium tracking-wide truncate shrink-0 capitalize">{member.role.replace('_', ' ')}</span>
+                          {member.email && <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded truncate max-w-full">{member.email}</span>}
                         </div>
                       </div>
                     </div>
                     {role === "admin" && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
-                        <button onClick={() => startEdit(member)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => deleteMember(member.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <button onClick={() => startEdit(member)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => deleteMember(member.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     )}
                   </div>
@@ -453,29 +451,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-
-      {showCalendarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
-          <div className="bg-slate-50 rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center px-5 py-3 border-b border-slate-200 bg-white">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <h3 className="font-bold text-sm text-slate-900">Manage Exclusions</h3>
-              </div>
-              <button
-                onClick={() => setShowCalendarModal(false)}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-4 max-h-[85vh] overflow-y-auto">
-              <HolidayCalendar />
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
