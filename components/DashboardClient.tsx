@@ -140,19 +140,19 @@ export default function DashboardClient({
       if (logError) setActivityLogError(logError.message);
 
       triggerN8nWebhook({
-        event: 'status_changed',
-        websiteName: currentWebsite.website_name,
-        domain: currentWebsite.domain,
-        oldStatus: previousStatus,
-        newStatus: nextStatus,
-        websiteId: websiteId,
-        changedBy: operatorIdentity,
-        customNotes: customNotes
-      }).catch(err => console.error("Server action failed:", err));
+              event: 'status_changed',
+              websiteName: currentWebsite.website_name,
+              domain: currentWebsite.domain || "N/A",
+              oldStatus: previousStatus || "None", // <-- THE FIX: Added fallback string
+              newStatus: nextStatus,
+              websiteId: websiteId,
+              changedBy: operatorIdentity,
+              customNotes: customNotes
+            }).catch(err => console.error("Server action failed:", err));
 
-      router.refresh();
-      return;
-    }
+            router.refresh();
+            return;
+          }
 
     setWebsites((currentWebsites) =>
       currentWebsites.map((website) =>

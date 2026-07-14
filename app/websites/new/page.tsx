@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Key, FileText, Save, Building, Users } from "lucide-react";
 import { triggerN8nWebhook } from "@/app/actions";
+import { useAuth } from "@/components/AuthProvider";
 
 function parsePagesAndNotes(notesText: string, domain: string | null) {
   const baseUrl = domain 
@@ -71,6 +72,7 @@ function parsePagesAndNotes(notesText: string, domain: string | null) {
 
 export default function AddWebsitePage() {
   const router = useRouter();
+  const { name } = useAuth(); // Extracted name to send to webhook
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [teamMembers, setTeamMembers] = useState<{ name: string; role: string }[]>([]);
 
@@ -87,7 +89,6 @@ export default function AddWebsitePage() {
     priority: "Normal",
   });
 
-  // 1. FIXED: Pointed query to the secure "team_members" vault
   useEffect(() => {
     async function fetchTeam() {
       const { data, error } = await supabase.from("team_members").select("name, role");
@@ -99,7 +100,6 @@ export default function AddWebsitePage() {
     fetchTeam();
   }, []);
 
-    // 2. FIXED: Aligned strings with the new lowercase database standards
   const developers = teamMembers.filter((m) => m.role === "developer");
   const contentWriters = teamMembers.filter((m) => m.role === "content_writer");
   const seoPersons = teamMembers.filter((m) => m.role === "seo_person");
@@ -176,12 +176,15 @@ export default function AddWebsitePage() {
         new_value: "Pending",
       });
 
+      // UPGRADED: Satisfying the strict TypeScript webhook requirements
       triggerN8nWebhook({
         event: 'website_created',
         websiteName: data.website_name,
         domain: data.domain,
-        oldStatus: null,
+        oldStatus: "None", // Passed as string instead of null
         newStatus: 'Pending',
+        websiteId: data.id, // Injected ID
+        changedBy: name || "System Operator", // Injected Operator Name
       }).catch(err => console.error("Server action failed:", err));
 
       router.push(`/websites/${data.id}`);
