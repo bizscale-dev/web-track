@@ -21,7 +21,8 @@ const parseCreds = (credsString: string | null) => {
 };
 
 export default function ClientPage({ initialWebsite }: { initialWebsite: any }) {
-  const { role } = useAuth();
+  // UPGRADED: Extracting 'name' to pass to the webhook
+  const { role, name } = useAuth();
   const isCommand = role === "admin" || role === "manager";
   const [website, setWebsite] = useState(initialWebsite);
   const [tasks, setTasks] = useState(initialWebsite.website_tasks || []);
@@ -139,6 +140,8 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
           oldStatus: oldStatus,
           newStatus: teamForm.status,
           websiteId: website.id,
+          // UPGRADED: Adding the missing parameter to satisfy the TypeScript compiler
+          changedBy: name || "System Operator",
         }).catch(err => console.error("Server action failed:", err));
       }
     }
