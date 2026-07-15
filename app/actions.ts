@@ -29,9 +29,17 @@ export async function triggerN8nWebhook(payload: {
 }) {
   if (!WEBHOOK_URL) return { success: false, error: 'No webhook URL configured' };
 
+  // --- THE FIX: Create a Master Key Client to bypass RLS blocks on the backend ---
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  const adminDb = (supabaseUrl && serviceRoleKey)
+    ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+    : supabase; // Fallback to normal client if env vars are missing
+
   let targetWebsiteId = payload.websiteId;
   if (!targetWebsiteId) {
-    const { data } = await supabase
+    const { data } = await adminDb
       .from('websites')
       .select('id')
       .eq('website_name', payload.websiteName)
@@ -53,9 +61,9 @@ export async function triggerN8nWebhook(payload: {
     hour12: true
   });
 
-  // --- NEW: FETCH THE RAW ID STRING FROM THE DATABASE ---
+  // --- FETCH THE RAW ID STRING USING THE MASTER KEY ---
   const triggerKey = payload.event === 'website_created' ? 'Website Created' : payload.newStatus;
-  const { data: mentionRecord } = await supabase
+  const { data: mentionRecord } = await adminDb
     .from('status_mentions')
     .select('mention_string')
     .eq('status', triggerKey)
@@ -80,7 +88,7 @@ export async function triggerN8nWebhook(payload: {
     case 'Sent For Content':
       let pagesListStr = '*(No pages found in the database for this website)*';
       if (targetWebsiteId) {
-        const { data: tasks } = await supabase
+        const { data: tasks } = await adminDb
           .from('website_tasks')
           .select('title, url')
           .eq('website_id', targetWebsiteId);
@@ -113,7 +121,7 @@ export async function triggerN8nWebhook(payload: {
   const showUrl = !['Domain Connection', 'Completed'].includes(payload.newStatus);
   const urlLine = showUrl ? `\n*URL:* ${cleanDomain}` : '';
 
-  // --- NEW: CONCATENATE THE MENTION STRING DIRECTLY INTO THE MESSAGE ---
+  // CONCATENATE THE MENTION STRING DIRECTLY INTO THE MESSAGE
   const formattedMessage = `${mention}*Business Name:* ${cleanName}${urlLine}
 *Status Changed By:* ${operator}
 ⏱️ *Time:* ${timestamp}
@@ -142,6 +150,98 @@ ${customMessage}`;
   }
 }
 
-// ... keep your completelyDeleteUser and cascadeNameUpdate functions below exactly as they were!
-export async function completelyDeleteUser(userId: string) { /* ... */ }
-export async function cascadeNameUpdate(oldName: string, newName: string, userId: string) { /* ... */ }
+export async function completelyDeleteUser(userId: string) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    return { success: false, error: "Missing Admin database credentials." };
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  try {
+    const { data: member, error: fetchError } = await supabaseAdmin
+      .from('team_members')
+      .select('email')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !member) {
+      throw new Error(fetchError?.message || "Team member not found.");
+    }
+
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) throw listError;
+
+    const authUser = users.find(u => u.email?.toLowerCase() === member.email?.toLowerCase());
+
+    if (authUser) {
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      if (deleteAuthError) throw deleteAuthError;
+    }
+
+    const { error: deleteDbError } = await supabaseAdmin
+      .from('team_members')
+      .delete()
+      .eq('id', userId);
+
+    if (deleteDbError) throw deleteDbError;
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Admin deletion failed:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function cascadeNameUpdate(oldName: string, newName: string, userId: string) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    return { success: false, error: "Missing Admin database credentials." };
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  try {
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (userError || !user) throw new Error(userError?.message || "Auth user not found");
+
+    if (user.email) {
+      const { error: teamError } = await supabaseAdmin
+        .from("team_members")
+        .update({ name: newName })
+        .eq("email", user.email);
+      if (teamError) throw teamError;
+    }
+
+    const { error: devError } = await supabaseAdmin.from("websites").update({ developer: newName }).eq("developer", oldName);
+    if (devError) throw devError;
+
+    const { error: writerError } = await supabaseAdmin.from("websites").update({ content_writer: newName }).eq("content_writer", oldName);
+    if (writerError) throw writerError;
+
+    const { error: seoError } = await supabaseAdmin.from("websites").update({ seo_person: newName }).eq("seo_person", oldName);
+    if (seoError) throw seoError;
+
+    const { error: logError } = await supabaseAdmin.from("website_activity_logs").update({ changed_by_email: newName }).eq("changed_by_email", oldName);
+    if (logError) throw logError;
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Cascade update failed:", error);
+    return { success: false, error: error.message };
+  }
+}
