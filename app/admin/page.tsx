@@ -389,6 +389,7 @@ const addSecureMember = async () => {
                   <option value="content_writer">Content Writer</option>
                   <option value="seo_person">SEO Person</option>
                   <option value="manager">Manager</option>
+                  <option value="support">Support</option>
                 </select>
               </div>
               <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -416,6 +417,7 @@ const addSecureMember = async () => {
                         <option value="content_writer">Content Writer</option>
                         <option value="seo_person">SEO Person</option>
                         <option value="manager">Manager</option>
+                        <option value="support">Support</option>
                         {member.role === 'admin' && <option value="admin">Admin</option>}
                       </select>
                     </div>

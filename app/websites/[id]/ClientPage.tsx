@@ -1,5 +1,6 @@
 "use client";
 import TaskManager from "@/components/TaskManager";
+import SupportRequirements from "@/components/SupportRequirements";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -227,60 +228,68 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         
-        {/* LEFT COL: PAGES TRACKER */}
-        <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3"><LayoutTemplate className="w-5 h-5" /></div>
-              <h2 className="text-xl font-semibold">Pages Tracker</h2>
+        {/* LEFT COL: PAGES & SUPPORT MODULES */}
+        <div className="flex flex-col gap-6">
+          
+          {/* PAGES TRACKER */}
+          <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3"><LayoutTemplate className="w-5 h-5" /></div>
+                <h2 className="text-xl font-semibold">Pages Tracker</h2>
+              </div>
+              <button onClick={handleAddDefaultPages} className="text-xs flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md font-medium transition-colors">
+                <ListPlus className="w-4 h-4 mr-1" /> Add Defaults
+              </button>
             </div>
-            <button onClick={handleAddDefaultPages} className="text-xs flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md font-medium transition-colors">
-              <ListPlus className="w-4 h-4 mr-1" /> Add Defaults
-            </button>
+
+            <div className="flex flex-col sm:flex-row gap-2 mb-6 p-3 bg-gray-50/50 border border-gray-100 rounded-xl">
+              <input type="text" placeholder="Page Name" className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.name} onChange={(e) => setNewTaskForm({...newTaskForm, name: e.target.value})} />
+              <input type="text" placeholder="Page URL/Link" className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.url} onChange={(e) => setNewTaskForm({...newTaskForm, url: e.target.value})} />
+              <button onClick={handleAddTask} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shrink-0 flex items-center justify-center"><Plus className="w-5 h-5" /></button>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white/50">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50/80 text-gray-600 border-b border-gray-200">
+                  <tr><th className="px-4 py-3 font-medium">Page Name</th><th className="px-4 py-3 font-medium">URL</th><th className="px-4 py-3 font-medium text-right">Actions</th></tr>
+                </thead>
+                <tbody>
+                  {tasks.length === 0 ? (
+                    <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-500 italic">No pages tracked yet. Add one above!</td></tr>
+                  ) : (
+                    tasks.map((task: any) => (
+                      <tr key={task.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                        {editingTaskId === task.id ? (
+                          <>
+                            <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 border rounded text-xs" value={editTaskForm.name} onChange={e => setEditTaskForm({...editTaskForm, name: e.target.value})} /></td>
+                            <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 border rounded text-xs" value={editTaskForm.url} onChange={e => setEditTaskForm({...editTaskForm, url: e.target.value})} /></td>
+                            <td className="px-4 py-2 text-right space-x-2">
+                              <button onClick={() => handleSaveEditTask(task.id)} className="text-green-600 hover:text-green-800"><Save className="w-4 h-4" /></button>
+                              <button onClick={() => setEditingTaskId(null)} className="text-gray-400 hover:text-gray-600">Cancel</button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-4 py-3 font-medium text-gray-800">{task.title || "-"}</td>
+                            <td className="px-4 py-3">{task.url ? <a href={task.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline max-w-[200px] block truncate">{task.url}</a> : "-"}</td>
+                            <td className="px-4 py-3 text-right space-x-3">
+                              <button onClick={() => { setEditingTaskId(task.id); setEditTaskForm({ name: task.title, url: task.url }); }} className="text-gray-400 hover:text-blue-600"><Edit2 className="w-4 h-4 inline" /></button>
+                              <button onClick={() => handleDeleteTask(task.id)} className="text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4 inline" /></button>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 mb-6 p-3 bg-gray-50/50 border border-gray-100 rounded-xl">
-            <input type="text" placeholder="Page Name" className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.name} onChange={(e) => setNewTaskForm({...newTaskForm, name: e.target.value})} />
-            <input type="text" placeholder="Page URL/Link" className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.url} onChange={(e) => setNewTaskForm({...newTaskForm, url: e.target.value})} />
-            <button onClick={handleAddTask} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shrink-0 flex items-center justify-center"><Plus className="w-5 h-5" /></button>
-          </div>
+          {/* NEW MODULE: SUPPORT REQUIREMENTS */}
+          <SupportRequirements websiteId={website.id} />
 
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white/50">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50/80 text-gray-600 border-b border-gray-200">
-                <tr><th className="px-4 py-3 font-medium">Page Name</th><th className="px-4 py-3 font-medium">URL</th><th className="px-4 py-3 font-medium text-right">Actions</th></tr>
-              </thead>
-              <tbody>
-                {tasks.length === 0 ? (
-                  <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-500 italic">No pages tracked yet. Add one above!</td></tr>
-                ) : (
-                  tasks.map((task: any) => (
-                    <tr key={task.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
-                      {editingTaskId === task.id ? (
-                        <>
-                          <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 border rounded text-xs" value={editTaskForm.name} onChange={e => setEditTaskForm({...editTaskForm, name: e.target.value})} /></td>
-                          <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 border rounded text-xs" value={editTaskForm.url} onChange={e => setEditTaskForm({...editTaskForm, url: e.target.value})} /></td>
-                          <td className="px-4 py-2 text-right space-x-2">
-                            <button onClick={() => handleSaveEditTask(task.id)} className="text-green-600 hover:text-green-800"><Save className="w-4 h-4" /></button>
-                            <button onClick={() => setEditingTaskId(null)} className="text-gray-400 hover:text-gray-600">Cancel</button>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-4 py-3 font-medium text-gray-800">{task.title || "-"}</td>
-                          <td className="px-4 py-3">{task.url ? <a href={task.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline max-w-[200px] block truncate">{task.url}</a> : "-"}</td>
-                          <td className="px-4 py-3 text-right space-x-3">
-                            <button onClick={() => { setEditingTaskId(task.id); setEditTaskForm({ name: task.title, url: task.url }); }} className="text-gray-400 hover:text-blue-600"><Edit2 className="w-4 h-4 inline" /></button>
-                            <button onClick={() => handleDeleteTask(task.id)} className="text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4 inline" /></button>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
 
         {/* RIGHT COL: CREDS & NOTES */}
