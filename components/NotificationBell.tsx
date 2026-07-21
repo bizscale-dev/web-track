@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Bell, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 
 interface AppNotification {
@@ -15,7 +15,8 @@ interface AppNotification {
 }
 
 export default function NotificationBell() {
-  const { role } = useAuth(); // Removed "user" from here to fix the error
+  const { role } = useAuth(); 
+  const router = useRouter();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -28,19 +29,17 @@ export default function NotificationBell() {
     if (!showBell) return;
 
     const setupNotifications = async () => {
-      // 1. Fetch the user email directly from Supabase session instead of AuthProvider
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
       if (!supabaseUser?.email) return;
       setUserEmail(supabaseUser.email);
 
-      // 2. Fetch their specific notifications
       const { data } = await supabase
         .from('user_notifications')
         .select('*')
         .eq('user_email', supabaseUser.email)
         .order('created_at', { ascending: false })
-        .limit(20); // Keep it to recent 20
+        .limit(20); 
       
       if (data) setNotifications(data);
     };
@@ -72,6 +71,17 @@ export default function NotificationBell() {
     await supabase.from('user_notifications').update({ is_read: true }).eq('user_email', userEmail).eq('is_read', false);
   };
 
+  // THE NEW CLICK HANDLER: Redirects, marks read, and closes dropdown
+  const handleNotificationClick = (notif: AppNotification) => {
+    if (!notif.is_read) {
+      markAsRead(notif.id);
+    }
+    setIsOpen(false);
+    if (notif.link_url) {
+      router.push(notif.link_url);
+    }
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button 
@@ -100,17 +110,32 @@ export default function NotificationBell() {
               <div className="p-4 text-center text-sm text-gray-500">No notifications yet.</div>
             ) : (
               notifications.map(notif => (
-                <div key={notif.id} className={`p-3 border-b border-gray-100 transition-colors ${notif.is_read ? 'bg-white opacity-60' : 'bg-blue-50/30'}`}>
-                  <Link href={notif.link_url || '#'} onClick={() => markAsRead(notif.id)} className="block">
+                <div 
+                  key={notif.id} 
+                  className={`p-3 border-b border-gray-100 transition-colors hover:bg-gray-50 ${notif.is_read ? 'bg-white opacity-60' : 'bg-blue-50/30'}`}
+                >
+                  {/* Clickable Area for Redirection */}
+                  <div 
+                    onClick={() => handleNotificationClick(notif)} 
+                    className="block cursor-pointer"
+                  >
                     <p className={`text-xs ${notif.is_read ? 'text-gray-600' : 'text-gray-900 font-medium'}`}>
                       {notif.message}
                     </p>
                     <span className="text-[9px] text-gray-400 mt-1 block">
                       {new Date(notif.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </span>
-                  </Link>
+                  </div>
+                  
+                  {/* Standalone Mark as Read Action */}
                   {!notif.is_read && (
-                    <button onClick={() => markAsRead(notif.id)} className="mt-2 text-[10px] flex items-center gap-1 text-blue-600 hover:text-blue-800">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevents the redirect when just clicking the button
+                        markAsRead(notif.id);
+                      }} 
+                      className="mt-2 text-[10px] flex items-center gap-1 text-blue-600 hover:text-blue-800 relative z-10"
+                    >
                       <CheckCircle2 className="w-3 h-3" /> Mark as read
                     </button>
                   )}
