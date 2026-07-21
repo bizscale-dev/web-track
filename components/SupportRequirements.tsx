@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { dispatchCompletionNotification } from '@/app/actions';
 import { LifeBuoy, Plus, Loader2, Trash2, CheckCircle2, Clock, ShieldAlert } from 'lucide-react';
 
 interface SupportItem {
@@ -89,14 +90,16 @@ export default function SupportRequirements({ websiteId }: { websiteId: number }
       completed_at: newStatus ? now : null
     };
 
+    // Optimistic Update
     setItems(items.map(item => item.id === id ? { ...item, ...updatePayload } : item));
 
     const { error } = await supabase
       .from('website_support_requirements')
       .update(updatePayload)
       .eq('id', id);
-
+      
     if (error) {
+      // Revert if database fails...
       setItems(items.map(item => item.id === id ? { 
         ...item, 
         is_completed: currentStatus,
@@ -104,6 +107,13 @@ export default function SupportRequirements({ websiteId }: { websiteId: number }
         completed_at: item.completed_at
       } : item));
       console.error("Failed to update status:", error);
+    }
+    else if (newStatus === true) {
+      // Find the specific item so we can grab its title for the notification
+      const targetItem = items.find(i => i.id === id);
+      if (targetItem) {
+        dispatchCompletionNotification(websiteId, targetItem.title, currentUser.name);
+      }
     }
   };
 
@@ -131,7 +141,6 @@ export default function SupportRequirements({ websiteId }: { websiteId: number }
     <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60 flex-grow flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
-          {/* Changed from indigo to blue to fix the Dark Reader inversion bug */}
           <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3">
             <LifeBuoy className="w-5 h-5" />
           </div>

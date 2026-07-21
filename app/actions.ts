@@ -244,4 +244,43 @@ export async function cascadeNameUpdate(oldName: string, newName: string, userId
     console.error("Cascade update failed:", error);
     return { success: false, error: error.message };
   }
+
+  
+}
+export async function dispatchCompletionNotification(websiteId: number, reqTitle: string, supportName: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !serviceRoleKey) return { success: false, error: 'Missing keys' };
+  
+  const adminDb = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+
+  try {
+    // 1. Get the website name
+    const { data: web } = await adminDb.from('websites').select('website_name').eq('id', websiteId).single();
+    const siteName = web?.website_name || "a website";
+
+    // 2. Get all staff members who need to be notified
+    const { data: team } = await adminDb.from('team_members').select('email, role');
+    if (!team) return { success: false, error: 'No team found' };
+
+    const targetUsers = team.filter(t => ['admin', 'manager', 'developer'].includes(t.role.toLowerCase()));
+
+    // 3. Create an independent notification row for EVERY target user
+    const notifications = targetUsers.map(user => ({
+      user_email: user.email,
+      message: `${supportName} has checked off a requirement ("${reqTitle}") for ${siteName}`,
+      link_url: `/website/${websiteId}`,
+      is_read: false
+    }));
+
+    if (notifications.length > 0) {
+      await adminDb.from('user_notifications').insert(notifications);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Notification dispatch failed:", error);
+    return { success: false, error: error.message };
+  }
 }

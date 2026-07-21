@@ -1,10 +1,11 @@
 "use client";
 
 import { useAuth } from "./AuthProvider";
-import { Shield, ShieldAlert, ShieldCheck, LogOut, LayoutDashboard, Lock, Briefcase } from "lucide-react";
+import { Shield, ShieldAlert, ShieldCheck, LogOut, LayoutDashboard, Lock, Briefcase, LifeBuoy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import NotificationBell from "@/components/NotificationBell"; // Make sure this path matches your structure!
 
 export default function TopAuthBar() {
   const { role } = useAuth();
@@ -45,7 +46,7 @@ export default function TopAuthBar() {
             <span className="text-sm font-black text-slate-700 leading-none tracking-tight">Standard User</span>
           ) : (
             /* DYNAMIC STAFF ROLE DISPLAY */
-            <span className="text-sm font-black text-purple-700 leading-none tracking-tight">{role} Access</span>
+            <span className="text-sm font-black text-purple-700 leading-none tracking-tight capitalize">{role} Access</span>
           )}
         </div>
       </div>
@@ -58,12 +59,24 @@ export default function TopAuthBar() {
           </Link>
         ) : (
           <div className="flex items-center gap-2 sm:gap-3">
+            
+            {/* NEW: Independent Notification Bell */}
+            <NotificationBell />
+
+            {/* Support Role Only: Global Requirements Board */}
+            {role === "support" && pathname !== "/requirements" && (
+              <Link href="/requirements" className="hidden sm:flex items-center gap-2 text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl border border-purple-200 transition-all shadow-sm">
+                <LifeBuoy className="w-4 h-4" /> Requirements Board
+              </Link>
+            )}
+
             {/* UPGRADED: Allows both Admins and Managers to see the Command Center link */}
             {pathname !== "/admin" && pathname !== "/admin/timelines" && (role === "admin" || role === "manager") && (
               <Link href="/admin" className="hidden sm:flex items-center gap-2 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl border border-blue-200 transition-all shadow-sm">
                 <LayoutDashboard className="w-4 h-4" /> Command Center
               </Link>
             )}
+
             <button 
               onClick={handleLogout} 
               className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-full hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)]"
