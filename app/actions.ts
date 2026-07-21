@@ -270,7 +270,7 @@ export async function dispatchCompletionNotification(websiteId: number, reqTitle
     const notifications = targetUsers.map(user => ({
       user_email: user.email,
       message: `${supportName} has checked off a requirement ("${reqTitle}") for ${siteName}`,
-      link_url: `/website/${websiteId}`,
+      link_url: `/websites/${websiteId}`,
       is_read: false
     }));
 
