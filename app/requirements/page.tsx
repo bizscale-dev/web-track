@@ -7,6 +7,12 @@ import { Loader2, LifeBuoy, Clock, CheckCircle2, ShieldAlert } from 'lucide-reac
 import Link from 'next/link';
 import { dispatchCompletionNotification } from '@/app/actions';
 
+interface SiteGroup {
+  websiteId: number;
+  websiteName: string;
+  requirements: any[];
+}
+
 export default function GlobalRequirementsPage() {
   const { role, name } = useAuth();
   const [requirements, setRequirements] = useState<any[]>([]);
@@ -30,6 +36,21 @@ export default function GlobalRequirementsPage() {
     if (data) setRequirements(data);
     setIsLoading(false);
   };
+
+  const siteGroups: SiteGroup[] = Object.values(
+    requirements.reduce((groups: Record<number, SiteGroup>, req) => {
+      const websiteId = req.website_id;
+      if (!groups[websiteId]) {
+        groups[websiteId] = {
+          websiteId,
+          websiteName: req.websites?.website_name || "Unknown Site",
+          requirements: [],
+        };
+      }
+      groups[websiteId].requirements.push(req);
+      return groups;
+    }, {})
+  ).sort((a, b) => a.websiteName.localeCompare(b.websiteName));
 
   const isSupport = role === 'support';
   const canCheck = role === 'support' || role === 'admin';
@@ -84,51 +105,79 @@ export default function GlobalRequirementsPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-        {requirements.length === 0 ? (
+      {requirements.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
           <p className="text-center text-gray-500 py-10">No support requirements exist in the entire system.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {requirements.map((req) => (
-              <div key={req.id} className={`p-4 rounded-xl border transition-all ${req.is_completed ? 'bg-gray-50 border-gray-200' : 'bg-white border-blue-200 shadow-sm hover:border-blue-400'}`}>
-                
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    {req.websites?.website_name || "Unknown Site"}
-                  </span>
-                  <Link href={`/website/${req.website_id}`} className="text-[10px] text-gray-400 hover:text-blue-600 hover:underline">
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {siteGroups.map((group) => {
+            const pendingCount = group.requirements.filter((r) => !r.is_completed).length;
+            return (
+              <div key={group.websiteId} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/60">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-bold text-gray-900">{group.websiteName}</h2>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded ${pendingCount > 0 ? 'text-blue-600 bg-blue-50' : 'text-emerald-600 bg-emerald-50'}`}>
+                      {pendingCount > 0 ? `${pendingCount} Pending` : 'All Completed'}
+                    </span>
+                  </div>
+                  <Link href={`/website/${group.websiteId}`} className="text-xs text-gray-400 hover:text-blue-600 hover:underline">
                     View CRM ↗
                   </Link>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={req.is_completed}
-                    onChange={() => toggleCompletion(req.id, req.is_completed, req.website_id, req.title)}
-                    className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <div>
-                    <h3 className={`text-sm font-bold mb-2 ${req.is_completed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
-                      {req.title}
-                    </h3>
-                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-medium">
-                      <Clock className="w-3 h-3" />
-                      Requested by {req.created_by_name}
-                    </div>
-                    {req.is_completed && req.completed_by_name && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-medium mt-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Completed by {req.completed_by_name}
-                      </div>
-                    )}
-                  </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50/80 text-gray-600 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 font-medium w-10"></th>
+                        <th className="px-4 py-3 font-medium">Requirement</th>
+                        <th className="px-4 py-3 font-medium">Requested By</th>
+                        <th className="px-4 py-3 font-medium">Completed By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.requirements.map((req) => (
+                        <tr key={req.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={req.is_completed}
+                              onChange={() => toggleCompletion(req.id, req.is_completed, req.website_id, req.title)}
+                              disabled={!canCheck}
+                              className={`w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${!canCheck ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                            />
+                          </td>
+                          <td className={`px-4 py-3 font-medium ${req.is_completed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                            {req.title}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500">
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <Clock className="w-3 h-3" />
+                              {req.created_by_name}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {req.is_completed && req.completed_by_name ? (
+                              <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                                <CheckCircle2 className="w-3 h-3" />
+                                {req.completed_by_name}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
