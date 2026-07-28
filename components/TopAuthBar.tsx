@@ -20,7 +20,7 @@ export default function TopAuthBar() {
   };
 
   return (
-    <div className="sticky top-0 z-[100] w-full backdrop-blur-xl bg-white/70 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] px-4 sm:px-8 py-3 flex items-center justify-between transition-all duration-500">
+    <div className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] px-4 sm:px-8 py-3 flex items-center justify-between transition-all duration-500">
       
       {/* Left Side: Clearance Status */}
       <div className="flex items-center gap-3">

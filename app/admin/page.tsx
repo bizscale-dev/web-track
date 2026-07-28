@@ -455,7 +455,7 @@ const addSecureMember = async () => {
       </div>
       {/* --- ADD THIS MISSING MODAL BLOCK --- */}
       {showCalendarModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 transition-opacity">
           <div className="bg-slate-50 rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center px-5 py-3 border-b border-slate-200 bg-white">
               <div className="flex items-center gap-2">

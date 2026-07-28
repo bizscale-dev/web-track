@@ -191,7 +191,7 @@ export default function DashboardClient({
 
   return (
     <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 relative">
-      <header className="mb-8 overflow-hidden rounded-[28px] border border-white/60 bg-white/70 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:p-8">
+      <header className="mb-8 overflow-hidden rounded-[28px] border border-white/60 bg-white/95 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] lg:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
@@ -296,7 +296,7 @@ export default function DashboardClient({
 
       <div className="mt-8 space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
-          <div className="inline-flex rounded-2xl bg-slate-100/80 p-1 backdrop-blur-sm border border-slate-200/40 shadow-inner overflow-x-auto max-w-full">
+          <div className="inline-flex rounded-2xl bg-slate-100/95 p-1 border border-slate-200/40 shadow-inner overflow-x-auto max-w-full">
             {(["All", "In Progress", "Completed", "Not Started"] as const).map((filter) => (
               <button
                 key={filter}
@@ -320,7 +320,7 @@ export default function DashboardClient({
         </div>
 
         {filteredWebsites.length === 0 ? (
-          <div className="rounded-[24px] border border-dashed border-slate-200 bg-white/80 p-10 text-center text-slate-500 shadow-[0_18px_60px_rgba(15,23,42,0.06)] backdrop-blur">
+          <div className="rounded-[24px] border border-dashed border-slate-200 bg-white/95 p-10 text-center text-slate-500 shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
             No websites match your current filters.
           </div>
         ) : (
@@ -340,7 +340,7 @@ export default function DashboardClient({
       {showSettings && <UserProfileSettings onClose={() => setShowSettings(false)} />}
 
       {demandModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 transition-opacity">
           <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-2">

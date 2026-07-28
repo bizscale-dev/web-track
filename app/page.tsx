@@ -40,7 +40,7 @@ export default function LoginPage() {
       <div className="absolute top-1/2 -left-24 w-72 h-72 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md z-10">
-        <div className="bg-white/80 backdrop-blur-xl border border-white shadow-[0_24px_80px_rgba(15,23,42,0.1)] rounded-[32px] p-8 sm:p-10">
+        <div className="bg-white/95 border border-white shadow-[0_24px_80px_rgba(15,23,42,0.1)] rounded-[32px] p-8 sm:p-10">
           
           <div className="flex flex-col items-center mb-8">
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 mb-6">

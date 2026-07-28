@@ -59,7 +59,6 @@ export default function BatmanThemeToggle() {
             background-color: #144272 !important;
             border-color: #205295 !important;
             box-shadow: 0 8px 30px rgba(10, 38, 71, 0.8) !important;
-            backdrop-filter: blur(12px) !important;
           }
           
           /* FORCE ALL TEXT TO PURE WHITE */

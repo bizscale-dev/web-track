@@ -131,14 +131,14 @@ export default function SupportRequirements({ websiteId }: { websiteId: number }
 
   if (isLoading) {
     return (
-      <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60 flex justify-center py-10">
+      <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60 flex justify-center py-10">
         <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60 flex-grow flex flex-col">
+    <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60 flex-grow flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
           <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3">

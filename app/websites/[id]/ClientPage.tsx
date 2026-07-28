@@ -220,7 +220,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
         </Link>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">{website.website_name || "Website Details"}</h1>
-          <a href={displayDomain} target="_blank" rel="noreferrer" className="inline-flex items-center px-4 py-2 bg-white/60 backdrop-blur-sm border border-gray-200 rounded-lg text-sm font-medium hover:bg-white transition-all shadow-sm">
+          <a href={displayDomain} target="_blank" rel="noreferrer" className="inline-flex items-center px-4 py-2 bg-white/90 border border-gray-200 rounded-lg text-sm font-medium hover:bg-white transition-all shadow-sm">
             Visit Site <ExternalLink className="w-4 h-4 ml-2" />
           </a>
         </div>
@@ -232,7 +232,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
         <div className="flex flex-col gap-6">
           
           {/* PAGES TRACKER */}
-          <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+          <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3"><LayoutTemplate className="w-5 h-5" /></div>
@@ -298,7 +298,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
           <TaskManager websiteId={website.id} initialTasks={website.project_tasks || []} />
           
           {/* TEAM & STATUS BOX */}
-          <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+          <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <div className="p-2 bg-purple-100 text-purple-600 rounded-lg mr-3"><Users className="w-5 h-5" /></div>
@@ -407,7 +407,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
           </div>
 
           {/* CREDENTIALS BOX */}
-          <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+          <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <div className="p-2 bg-amber-100 text-amber-600 rounded-lg mr-3"><Key className="w-5 h-5" /></div>
@@ -459,7 +459,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
           </div>
 
           {/* NOTES TABLE / BOX */}
-          <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60 flex-grow flex flex-col">
+          <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60 flex-grow flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg mr-3"><FileText className="w-5 h-5" /></div>

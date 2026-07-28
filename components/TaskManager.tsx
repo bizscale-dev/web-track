@@ -4,11 +4,19 @@ import { supabase } from '@/lib/supabase';
 
 export default function TaskManager({ websiteId, initialTasks }: { websiteId: string, initialTasks: any[] }) {
   const defaultTasks = [
-    { id: 't1', text: 'Pages Development', completed: false, completedAt: null },
-    { id: 't2', text: 'Content Done', completed: false, completedAt: null },
-    { id: 't3', text: 'Images Updated', completed: false, completedAt: null },
-    { id: 't4', text: 'Links Updated', completed: false, completedAt: null },
-    { id: 't5', text: 'Metas Updated', completed: false, completedAt: null },
+    { id: 't1', text: 'Pages Dev', completed: false, completedAt: null },
+    { id: 't2', text: 'Content', completed: false, completedAt: null },
+    { id: 't3', text: 'Images', completed: false, completedAt: null },
+    { id: 't4', text: 'Business Images - Before/After', completed: false, completedAt: null },
+    { id: 't5', text: 'Links', completed: false, completedAt: null },
+    { id: 't6', text: 'Metas', completed: false, completedAt: null },
+    { id: 't7', text: 'Form Testing', completed: false, completedAt: null },
+    { id: 't8', text: 'Business Info', completed: false, completedAt: null },
+    { id: 't9', text: 'Semantic HTML', completed: false, completedAt: null },
+    { id: 't10', text: 'Accessibility Tree', completed: false, completedAt: null },
+    { id: 't11', text: 'Mobile Responsiveness', completed: false, completedAt: null },
+    { id: 't12', text: 'Original Stats', completed: false, completedAt: null },
+    { id: 't13', text: 'Social Handles', completed: false, completedAt: null },
   ];
 
   // Use initial tasks from Supabase if they exist, otherwise load defaults
@@ -62,7 +70,7 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
   };
 
   return (
-    <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60 w-full h-fit">
+    <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60 w-full h-fit">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
           <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-1">

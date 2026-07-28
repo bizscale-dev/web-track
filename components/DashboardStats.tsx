@@ -43,7 +43,7 @@ export default function DashboardStats({ websites }: DashboardStatsProps) {
         accent="from-amber-500 to-orange-500"
       />
 
-      <div className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] backdrop-blur sm:col-span-2 xl:col-span-4">
+      <div className="rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] sm:col-span-2 xl:col-span-4">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm font-semibold text-slate-700">Status Breakdown</p>
           <p className="text-xs text-slate-500">{websites.length} tracked items</p>
@@ -86,7 +86,7 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] backdrop-blur">
+    <div className="rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">

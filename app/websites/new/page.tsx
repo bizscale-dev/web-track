@@ -218,7 +218,7 @@ export default function AddWebsitePage() {
       </div>
 
       <div className="space-y-6">
-        <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+        <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3"><Building className="w-5 h-5" /></div>
             <h2 className="text-xl font-semibold">Basic Information</h2>
@@ -235,7 +235,7 @@ export default function AddWebsitePage() {
           </div>
         </div>
 
-        <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+        <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-amber-100 text-amber-600 rounded-lg mr-3"><Key className="w-5 h-5" /></div>
             <h2 className="text-xl font-semibold">Credentials <span className="text-gray-400 font-normal text-sm">(Optional)</span></h2>
@@ -256,7 +256,7 @@ export default function AddWebsitePage() {
           </div>
         </div>
 
-        <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+        <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-purple-100 text-purple-600 rounded-lg mr-3"><Users className="w-5 h-5" /></div>
             <h2 className="text-xl font-semibold">Team &amp; Priority <span className="text-gray-400 font-normal text-sm">(Optional)</span></h2>
@@ -298,7 +298,7 @@ export default function AddWebsitePage() {
           </div>
         </div>
 
-        <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-gray-200/60">
+        <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60">
           <div className="flex items-center mb-6">
             <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg mr-3"><FileText className="w-5 h-5" /></div>
             <h2 className="text-xl font-semibold">Notes <span className="text-gray-400 font-normal text-sm">(Optional)</span></h2>
