@@ -63,8 +63,8 @@ export default function TopAuthBar() {
             {/* NEW: Independent Notification Bell */}
             <NotificationBell />
 
-            {/* Support Role Only: Global Requirements Board */}
-            {role === "support" && pathname !== "/requirements" && (
+            {/* Support & Admin: Global Requirements Board */}
+            {(role === "support" || role === "admin") && pathname !== "/requirements" && (
               <Link href="/requirements" className="hidden sm:flex items-center gap-2 text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl border border-purple-200 transition-all shadow-sm">
                 <LifeBuoy className="w-4 h-4" /> Requirements Board
               </Link>
