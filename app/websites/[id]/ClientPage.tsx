@@ -69,9 +69,9 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
     fetchTeam();
   }, []);
 
-  const developers = team.filter(t => t.role === "Developer");
-  const writers = team.filter(t => t.role === "Content Writer");
-  const seos = team.filter(t => t.role === "SEO Person");
+  const developers = team.filter(t => t.role === "developer");
+  const writers = team.filter(t => t.role === "content_writer");
+  const seos = team.filter(t => t.role === "seo_person");
 
   // --- UTILS ---
   const handleCopy = (text: string, id: string) => {
