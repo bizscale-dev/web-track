@@ -4,19 +4,22 @@ import { supabase } from '@/lib/supabase';
 
 export default function TaskManager({ websiteId, initialTasks }: { websiteId: string, initialTasks: any[] }) {
   const defaultTasks = [
-    { id: 't1', text: 'Pages Dev', completed: false, completedAt: null },
-    { id: 't2', text: 'Content', completed: false, completedAt: null },
-    { id: 't3', text: 'Images', completed: false, completedAt: null },
-    { id: 't4', text: 'Business Images - Before/After', completed: false, completedAt: null },
-    { id: 't5', text: 'Links', completed: false, completedAt: null },
-    { id: 't6', text: 'Metas', completed: false, completedAt: null },
-    { id: 't7', text: 'Form Testing', completed: false, completedAt: null },
-    { id: 't8', text: 'Business Info', completed: false, completedAt: null },
-    { id: 't9', text: 'Semantic HTML', completed: false, completedAt: null },
-    { id: 't10', text: 'Accessibility Tree', completed: false, completedAt: null },
-    { id: 't11', text: 'Mobile Responsiveness', completed: false, completedAt: null },
-    { id: 't12', text: 'Original Stats', completed: false, completedAt: null },
-    { id: 't13', text: 'Social Handles', completed: false, completedAt: null },
+    { id: 't1', text: 'Global Font Sizes & Colors', completed: false, completedAt: null },
+    { id: 't2', text: 'Pages Dev', completed: false, completedAt: null },
+    { id: 't3', text: 'Mobile Responsiveness', completed: false, completedAt: null },
+    { id: 't4', text: 'Content', completed: false, completedAt: null },
+    { id: 't5', text: 'Metas', completed: false, completedAt: null },
+    { id: 't6', text: 'Social Handles', completed: false, completedAt: null },
+    { id: 't7', text: 'Business Info', completed: false, completedAt: null },
+    { id: 't8', text: 'Semantic HTML', completed: false, completedAt: null },
+    { id: 't9', text: 'Accessibility Tree', completed: false, completedAt: null },
+    { id: 't10', text: 'Images', completed: false, completedAt: null },
+    { id: 't11', text: 'Business Images - Before/After', completed: false, completedAt: null },
+    { id: 't12', text: 'Links', completed: false, completedAt: null },
+    { id: 't13', text: 'Form Testing', completed: false, completedAt: null },
+    { id: 't14', text: 'Original Stats', completed: false, completedAt: null },
+    { id: 't15', text: 'Wordfence Config', completed: false, completedAt: null },
+    { id: 't16', text: 'Login URL Change', completed: false, completedAt: null },
   ];
 
   // Use initial tasks from Supabase if they exist, otherwise load defaults
@@ -69,6 +72,24 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
     setNewTaskText('');
   };
 
+  const existingTaskTexts = new Set(tasks.map((task: any) => task.text.trim().toLowerCase()));
+  const missingDefaultTasks = defaultTasks.filter(
+    (task) => !existingTaskTexts.has(task.text.trim().toLowerCase())
+  );
+
+  const addDefaultTasks = () => {
+    if (missingDefaultTasks.length === 0) return;
+
+    const tasksToAdd = missingDefaultTasks.map((task) => ({
+      ...task,
+      id: `${Date.now()}-${task.id}`,
+    }));
+
+    const updatedTasks = [...tasks, ...tasksToAdd];
+    setTasks(updatedTasks);
+    saveToSupabase(updatedTasks);
+  };
+
   return (
     <div className="bg-white/90 p-6 rounded-2xl shadow-sm border border-gray-200/60 w-full h-fit">
       <div className="flex items-center justify-between mb-4">
@@ -80,6 +101,18 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
           </div>
           Project Tasks
         </h3>
+        <button
+          type="button"
+          onClick={addDefaultTasks}
+          disabled={missingDefaultTasks.length === 0}
+          title={missingDefaultTasks.length === 0 ? 'All default tasks already added' : 'Add missing default tasks'}
+          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Default Tasks
+        </button>
       </div>
 
       <div className="space-y-2 mb-6">
