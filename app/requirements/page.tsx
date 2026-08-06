@@ -173,7 +173,7 @@ export default function GlobalRequirementsPage() {
                       {completedInGroup}/{totalInGroup} Completed
                     </span>
                   </div>
-                  <Link href={`/website/${group.websiteId}`} className="text-xs text-gray-400 hover:text-blue-600 hover:underline">
+                  <Link href={`/websites/${group.websiteId}`} className="text-xs text-gray-400 hover:text-blue-600 hover:underline">
                     View CRM ↗
                   </Link>
                 </div>
