@@ -17,6 +17,7 @@ export default function GlobalRequirementsPage() {
   const { role, name } = useAuth();
   const [requirements, setRequirements] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
 
   useEffect(() => {
     fetchGlobalRequirements();
@@ -37,7 +38,10 @@ export default function GlobalRequirementsPage() {
     setIsLoading(false);
   };
 
-  const siteGroups: SiteGroup[] = Object.values(
+  // Group by site first, using ALL of that site's requirements — a site only
+  // counts as "Completed" once every single requirement on it is checked.
+  // 3/4 checked still keeps the whole site (and all 4 items) in Pending.
+  const allSiteGroups: SiteGroup[] = Object.values(
     requirements.reduce((groups: Record<number, SiteGroup>, req) => {
       const websiteId = req.website_id;
       if (!groups[websiteId]) {
@@ -51,6 +55,14 @@ export default function GlobalRequirementsPage() {
       return groups;
     }, {})
   ).sort((a, b) => a.websiteName.localeCompare(b.websiteName));
+
+  const pendingSiteGroups = allSiteGroups.filter((g) => !g.requirements.every((r) => r.is_completed));
+  const completedSiteGroups = allSiteGroups.filter((g) => g.requirements.every((r) => r.is_completed));
+
+  const pendingCount = pendingSiteGroups.length;
+  const completedCount = completedSiteGroups.length;
+
+  const siteGroups = activeTab === 'pending' ? pendingSiteGroups : completedSiteGroups;
 
   const isSupport = role === 'support';
   const canCheck = role === 'support' || role === 'admin';
@@ -110,16 +122,55 @@ export default function GlobalRequirementsPage() {
           <p className="text-center text-gray-500 py-10">No support requirements exist in the entire system.</p>
         </div>
       ) : (
+        <>
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 ${
+                activeTab === 'pending'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Pending
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'pending' ? 'bg-white/20' : 'bg-gray-100'}`}>
+                {pendingCount} site{pendingCount === 1 ? '' : 's'}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('completed')}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 ${
+                activeTab === 'completed'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Completed
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'completed' ? 'bg-white/20' : 'bg-gray-100'}`}>
+                {completedCount} site{completedCount === 1 ? '' : 's'}
+              </span>
+            </button>
+          </div>
+
+          {siteGroups.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+              <p className="text-center text-gray-500 py-10">
+                {activeTab === 'pending' ? 'No sites with open requirements — nice work.' : 'No site has all its requirements completed yet.'}
+              </p>
+            </div>
+          ) : (
         <div className="flex flex-col gap-6">
           {siteGroups.map((group) => {
-            const pendingCount = group.requirements.filter((r) => !r.is_completed).length;
+            const completedInGroup = group.requirements.filter((r) => r.is_completed).length;
+            const totalInGroup = group.requirements.length;
+            const allDone = completedInGroup === totalInGroup;
             return (
               <div key={group.websiteId} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/60">
                   <div className="flex items-center gap-3">
                     <h2 className="text-lg font-bold text-gray-900">{group.websiteName}</h2>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded ${pendingCount > 0 ? 'text-blue-600 bg-blue-50' : 'text-emerald-600 bg-emerald-50'}`}>
-                      {pendingCount > 0 ? `${pendingCount} Pending` : 'All Completed'}
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded ${allDone ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'}`}>
+                      {completedInGroup}/{totalInGroup} Completed
                     </span>
                   </div>
                   <Link href={`/website/${group.websiteId}`} className="text-xs text-gray-400 hover:text-blue-600 hover:underline">
@@ -177,6 +228,8 @@ export default function GlobalRequirementsPage() {
             );
           })}
         </div>
+          )}
+        </>
       )}
     </main>
   );

@@ -1,58 +1,99 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+type TaskCompletion = { name: string; email: string; completedAt: string };
+type Task = { id: string; text: string; completions: TaskCompletion[] };
+
+const DEFAULT_TASK_DEFS: { id: string; text: string }[] = [
+  { id: 't1', text: 'Global Font Sizes & Colors' },
+  { id: 't2', text: 'Header' },
+  { id: 't3', text: 'Footer' },
+  { id: 't4', text: 'Pages Dev' },
+  { id: 't5', text: 'Mobile Responsiveness' },
+  { id: 't6', text: 'Content' },
+  { id: 't7', text: 'Metas' },
+  { id: 't8', text: 'Social Handles' },
+  { id: 't9', text: 'Business Info' },
+  { id: 't10', text: 'Semantic HTML' },
+  { id: 't11', text: 'Accessibility Tree' },
+  { id: 't12', text: 'Images' },
+  { id: 't13', text: 'Business Images - Before/After' },
+  { id: 't14', text: 'Links' },
+  { id: 't15', text: 'Form Testing' },
+  { id: 't16', text: 'Captcha' },
+  { id: 't17', text: 'Original Stats' },
+  { id: 't18', text: 'Wordfence Config' },
+  { id: 't19', text: 'Login URL Change' },
+];
+
+const defaultTasks: Task[] = DEFAULT_TASK_DEFS.map((t) => ({ ...t, completions: [] }));
+
+// Older saved tasks used a single `completed`/`completedAt` boolean pair.
+// Normalize those into the new multi-person `completions` shape on load.
+function normalizeTask(task: any): Task {
+  if (Array.isArray(task.completions)) {
+    return { id: task.id, text: task.text, completions: task.completions };
+  }
+  const completions: TaskCompletion[] = task.completed
+    ? [{ name: 'Unknown', email: '', completedAt: task.completedAt || new Date().toISOString() }]
+    : [];
+  return { id: task.id, text: task.text, completions };
+}
+
 export default function TaskManager({ websiteId, initialTasks }: { websiteId: string, initialTasks: any[] }) {
-  const defaultTasks = [
-    { id: 't1', text: 'Global Font Sizes & Colors', completed: false, completedAt: null },
-    { id: 't2', text: 'Header', completed: false, completedAt: null },
-    { id: 't3', text: 'Footer', completed: false, completedAt: null },
-    { id: 't4', text: 'Pages Dev', completed: false, completedAt: null },
-    { id: 't5', text: 'Mobile Responsiveness', completed: false, completedAt: null },
-    { id: 't6', text: 'Content', completed: false, completedAt: null },
-    { id: 't7', text: 'Metas', completed: false, completedAt: null },
-    { id: 't8', text: 'Social Handles', completed: false, completedAt: null },
-    { id: 't9', text: 'Business Info', completed: false, completedAt: null },
-    { id: 't10', text: 'Semantic HTML', completed: false, completedAt: null },
-    { id: 't11', text: 'Accessibility Tree', completed: false, completedAt: null },
-    { id: 't12', text: 'Images', completed: false, completedAt: null },
-    { id: 't13', text: 'Business Images - Before/After', completed: false, completedAt: null },
-    { id: 't14', text: 'Links', completed: false, completedAt: null },
-    { id: 't15', text: 'Form Testing', completed: false, completedAt: null },
-    { id: 't16', text: 'Original Stats', completed: false, completedAt: null },
-    { id: 't17', text: 'Wordfence Config', completed: false, completedAt: null },
-    { id: 't18', text: 'Login URL Change', completed: false, completedAt: null },
-  ];
-
-  // Use initial tasks from Supabase if they exist, otherwise load defaults
-  const [tasks, setTasks] = useState(
-    initialTasks && initialTasks.length > 0 ? initialTasks : defaultTasks
-  );
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const source = initialTasks && initialTasks.length > 0 ? initialTasks : defaultTasks;
+    return source.map(normalizeTask);
+  });
   const [newTaskText, setNewTaskText] = useState('');
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
 
-  const saveToSupabase = async (updatedTasks: any[]) => {
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
+
+      let name = user.user_metadata?.name || user.email;
+      const { data: teamMember } = await supabase
+        .from('team_members')
+        .select('name')
+        .eq('email', user.email)
+        .single();
+      if (teamMember?.name) name = teamMember.name;
+
+      setCurrentUser({ name, email: user.email });
+    })();
+  }, []);
+
+  const saveToSupabase = async (updatedTasks: Task[]) => {
     const { error } = await supabase
       .from('websites')
       .update({ project_tasks: updatedTasks })
       .eq('id', websiteId);
-      
+
     if (error) {
       console.error("Error saving tasks to Supabase:", error);
     }
   };
 
   const toggleTask = (id: string) => {
-    const updatedTasks = tasks.map((task: any) => {
-      if (task.id === id) {
-        const isCompleted = !task.completed;
-        return { 
-          ...task, 
-          completed: isCompleted,
-          completedAt: isCompleted ? new Date().toISOString() : null
-        };
-      }
-      return task;
+    if (!currentUser) return;
+
+    const updatedTasks = tasks.map((task) => {
+      if (task.id !== id) return task;
+
+      const alreadyDone = task.completions.some((c) => c.email === currentUser.email);
+      const completions = alreadyDone
+        ? task.completions.filter((c) => c.email !== currentUser.email)
+        : [
+            ...task.completions,
+            { name: currentUser.name, email: currentUser.email, completedAt: new Date().toISOString() },
+          ];
+
+      return { ...task, completions };
     });
+
     setTasks(updatedTasks);
     saveToSupabase(updatedTasks);
   };
@@ -61,11 +102,10 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
     e.preventDefault();
     if (!newTaskText.trim()) return;
 
-    const newTask = {
+    const newTask: Task = {
       id: Date.now().toString(),
       text: newTaskText,
-      completed: false,
-      completedAt: null
+      completions: [],
     };
 
     const updatedTasks = [...tasks, newTask];
@@ -74,7 +114,15 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
     setNewTaskText('');
   };
 
-  const existingTaskTexts = new Set(tasks.map((task: any) => task.text.trim().toLowerCase()));
+  const deleteTask = (id: string) => {
+    if (!window.confirm('Delete this task? This also removes everyone\'s completion history for it.')) return;
+
+    const updatedTasks = tasks.filter((task) => task.id !== id);
+    setTasks(updatedTasks);
+    saveToSupabase(updatedTasks);
+  };
+
+  const existingTaskTexts = new Set(tasks.map((task) => task.text.trim().toLowerCase()));
   const missingDefaultTasks = defaultTasks.filter(
     (task) => !existingTaskTexts.has(task.text.trim().toLowerCase())
   );
@@ -118,42 +166,70 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
       </div>
 
       <div className="space-y-2 mb-6">
-        {tasks.map((task: any) => (
-          <label
-            key={task.id}
-            className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
-              task.completed 
-                ? 'bg-gray-50/50 border-gray-100' 
-                : 'bg-white border-transparent hover:border-gray-100 hover:shadow-sm'
-            }`}
-          >
-            <div className="relative flex items-center">
-              <input
-                type="checkbox"
-                checked={task.completed}
-                onChange={() => toggleTask(task.id)}
-                className="peer w-5 h-5 border-2 border-gray-300 rounded text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
-              />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-w-0">
-              <span
-                className={`text-sm select-none transition-all duration-200 truncate pr-2 ${
-                  task.completed
-                    ? 'text-gray-400 line-through'
-                    : 'text-gray-700 font-medium'
-                }`}
-              >
-                {task.text}
-              </span>
-              {task.completed && task.completedAt && (
-                <span className="text-[10px] sm:text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md flex items-center gap-1 shrink-0 border border-emerald-100/50">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  {new Date(task.completedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                </span>
+        {tasks.map((task) => {
+          const isCheckedByMe = !!currentUser && task.completions.some((c) => c.email === currentUser.email);
+          const isDone = task.completions.length > 0;
+          const sortedCompletions = [...task.completions].sort(
+            (a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
+          );
+
+          return (
+            <div
+              key={task.id}
+              className={`p-3 rounded-xl transition-all border group ${
+                isDone
+                  ? 'bg-gray-50/50 border-gray-100'
+                  : 'bg-white border-transparent hover:border-gray-100 hover:shadow-sm'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={isCheckedByMe}
+                    disabled={!currentUser}
+                    onChange={() => toggleTask(task.id)}
+                    title={!currentUser ? 'Loading your account...' : isCheckedByMe ? 'Mark as not done by you' : 'Mark as done by you'}
+                    className="w-5 h-5 border-2 border-gray-300 rounded text-blue-600 focus:ring-blue-500 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
+                  />
+                  <span
+                    className={`text-sm select-none flex-1 truncate transition-all duration-200 ${
+                      isDone ? 'text-gray-400 line-through' : 'text-gray-700 font-medium'
+                    }`}
+                  >
+                    {task.text}
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => deleteTask(task.id)}
+                  title="Delete task"
+                  className="p-1.5 text-gray-300 hover:text-rose-600 hover:bg-rose-50 rounded-md opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+
+              {sortedCompletions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2 pl-8">
+                  {sortedCompletions.map((c, i) => (
+                    <span
+                      key={`${c.email || c.name}-${i}`}
+                      className="text-[10px] sm:text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md flex items-center gap-1 shrink-0 border border-emerald-100/50"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {c.name} · {new Date(c.completedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
-          </label>
-        ))}
+          );
+        })}
       </div>
 
       <form onSubmit={addTask} className="mt-4 flex gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "./AuthProvider";
-import { Shield, ShieldAlert, ShieldCheck, LogOut, LayoutDashboard, Lock, Briefcase, LifeBuoy } from "lucide-react";
+import { Shield, ShieldAlert, ShieldCheck, LogOut, LayoutDashboard, Lock, Briefcase, LifeBuoy, ClipboardList, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -74,6 +74,20 @@ export default function TopAuthBar() {
             {pathname !== "/admin" && pathname !== "/admin/timelines" && (role === "admin" || role === "manager") && (
               <Link href="/admin" className="hidden sm:flex items-center gap-2 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl border border-blue-200 transition-all shadow-sm">
                 <LayoutDashboard className="w-4 h-4" /> Command Center
+              </Link>
+            )}
+
+            {/* Developer & Manager: submit EOD */}
+            {(role === "developer" || role === "manager") && pathname !== "/eod" && (
+              <Link href="/eod" className="hidden sm:flex items-center gap-2 text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-4 py-2 rounded-xl border border-amber-200 transition-all shadow-sm">
+                <ClipboardList className="w-4 h-4" /> EOD Report
+              </Link>
+            )}
+
+            {/* Admin & Manager: view all EOD reports */}
+            {(role === "admin" || role === "manager") && pathname !== "/eod/overview" && (
+              <Link href="/eod/overview" className="hidden sm:flex items-center gap-2 text-sm font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-xl border border-teal-200 transition-all shadow-sm">
+                <ListChecks className="w-4 h-4" /> EOD Overview
               </Link>
             )}
 
