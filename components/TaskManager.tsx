@@ -186,7 +186,7 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
                 <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
                   <input
                     type="checkbox"
-                    checked={isCheckedByMe}
+                    checked={isDone}
                     disabled={!currentUser}
                     onChange={() => toggleTask(task.id)}
                     title={!currentUser ? 'Loading your account...' : isCheckedByMe ? 'Mark as not done by you' : 'Mark as done by you'}
