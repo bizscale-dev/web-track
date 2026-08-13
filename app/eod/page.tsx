@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { getEodSiteOptions, getSitePages } from "@/app/eodActions";
@@ -15,6 +16,7 @@ import {
   Trash2,
   CheckCircle2,
   ArrowRight,
+  ArrowLeft,
   X,
   Pencil,
 } from "lucide-react";
@@ -302,6 +304,12 @@ export default function EodPage() {
 
   return (
     <main className="p-4 sm:p-8 max-w-4xl mx-auto w-full">
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+      </Link>
       <div className="flex items-center gap-3 mb-8">
         <div className="p-3 bg-amber-600 text-white rounded-xl shadow-sm">
           <ClipboardList className="w-6 h-6" />

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
-import { Loader2, LifeBuoy, Clock, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Loader2, LifeBuoy, Clock, CheckCircle2, ShieldAlert, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { dispatchCompletionNotification } from '@/app/actions';
 
@@ -107,6 +107,12 @@ export default function GlobalRequirementsPage() {
 
   return (
     <main className="p-8 max-w-7xl mx-auto w-full">
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+      </Link>
       <div className="flex items-center gap-3 mb-8">
         <div className="p-3 bg-blue-600 text-white rounded-xl shadow-sm">
           <LifeBuoy className="w-6 h-6" />
