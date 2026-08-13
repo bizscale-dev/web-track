@@ -1,4 +1,4 @@
-export type EodSiteStatus = 'live' | 'subdomain_wip';
+export type EodSiteStatus = 'live' | 'subdomain_wip' | 'manual';
 
 export type EodSiteOption = {
   name: string;

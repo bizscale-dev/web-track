@@ -19,7 +19,14 @@ import {
   ArrowLeft,
   X,
   Pencil,
+  PlusCircle,
 } from "lucide-react";
+
+function normalizeSiteLink(link: string): string {
+  const trimmed = link.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 
 type DraftPage = {
   key: string;
@@ -47,6 +54,10 @@ export default function EodPage() {
   const [isLoadingSites, setIsLoadingSites] = useState(false);
   const [siteSearch, setSiteSearch] = useState("");
   const [selectedSite, setSelectedSite] = useState<EodSiteOption | null>(null);
+
+  const [isAddingManualSite, setIsAddingManualSite] = useState(false);
+  const [manualSiteName, setManualSiteName] = useState("");
+  const [manualSiteLink, setManualSiteLink] = useState("");
 
   const [sitePages, setSitePages] = useState<EodSitePage[]>([]);
   const [sitePagesError, setSitePagesError] = useState<string | null>(null);
@@ -134,6 +145,22 @@ export default function EodPage() {
       setSitePagesError(error);
       setIsLoadingPages(false);
     }
+  };
+
+  const addManualSite = async () => {
+    const name = manualSiteName.trim();
+    if (!name) return;
+
+    const site: EodSiteOption = {
+      name,
+      domain: manualSiteLink.trim() ? normalizeSiteLink(manualSiteLink) : null,
+      status: "manual",
+    };
+
+    setManualSiteName("");
+    setManualSiteLink("");
+    setIsAddingManualSite(false);
+    await selectSite(site);
   };
 
   const toggleSitemapPage = (page: EodSitePage) => {
@@ -350,45 +377,100 @@ export default function EodPage() {
                 <div className="flex justify-center py-10">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div>
-              ) : siteOptionsError ? (
-                <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">
-                  {siteOptionsError}
-                </div>
               ) : (
                 <>
-                  <div className="relative mb-4">
-                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={siteSearch}
-                      onChange={(e) => setSiteSearch(e.target.value)}
-                      placeholder="Search sites..."
-                      className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="max-h-96 overflow-y-auto space-y-1.5 pr-1">
-                    {filteredSites.map((site) => (
-                      <button
-                        key={site.name}
-                        onClick={() => selectSite(site)}
-                        className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all text-left"
-                      >
-                        <span className="font-medium text-sm text-gray-800">{site.name}</span>
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded shrink-0 ${
-                            site.status === "live"
-                              ? "text-emerald-600 bg-emerald-50"
-                              : "text-amber-600 bg-amber-50"
-                          }`}
+                  {siteOptionsError && (
+                    <div className="p-4 mb-4 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">
+                      {siteOptionsError}
+                    </div>
+                  )}
+
+                  {!siteOptionsError && (
+                    <>
+                      <div className="relative mb-4">
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={siteSearch}
+                          onChange={(e) => setSiteSearch(e.target.value)}
+                          placeholder="Search sites..."
+                          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                      </div>
+                      <div className="max-h-96 overflow-y-auto space-y-1.5 pr-1 mb-4">
+                        {filteredSites.map((site) => (
+                          <button
+                            key={site.name}
+                            onClick={() => selectSite(site)}
+                            className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all text-left"
+                          >
+                            <span className="font-medium text-sm text-gray-800">{site.name}</span>
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded shrink-0 ${
+                                site.status === "live"
+                                  ? "text-emerald-600 bg-emerald-50"
+                                  : "text-amber-600 bg-amber-50"
+                              }`}
+                            >
+                              {site.status === "live" ? "Live" : "Subdomain (domain not connected)"}
+                            </span>
+                          </button>
+                        ))}
+                        {filteredSites.length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-6">No sites match your search.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {isAddingManualSite ? (
+                    <div className="p-4 border border-blue-200 bg-blue-50/40 rounded-xl space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Add site manually</p>
+                      <input
+                        type="text"
+                        value={manualSiteName}
+                        onChange={(e) => setManualSiteName(e.target.value)}
+                        placeholder="Site name"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      />
+                      <input
+                        type="text"
+                        value={manualSiteLink}
+                        onChange={(e) => setManualSiteLink(e.target.value)}
+                        placeholder="Site link (optional, e.g. example.com)"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={addManualSite}
+                          disabled={!manualSiteName.trim()}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
                         >
-                          {site.status === "live" ? "Live" : "Subdomain (domain not connected)"}
-                        </span>
-                      </button>
-                    ))}
-                    {filteredSites.length === 0 && (
-                      <p className="text-sm text-gray-500 text-center py-6">No sites match your search.</p>
-                    )}
-                  </div>
+                          <ArrowRight className="w-4 h-4" /> Continue
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingManualSite(false);
+                            setManualSiteName("");
+                            setManualSiteLink("");
+                          }}
+                          className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingManualSite(true)}
+                      className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/50 transition-all"
+                    >
+                      <PlusCircle className="w-4 h-4" /> Can't find your site? Add it manually
+                    </button>
+                  )}
                 </>
               )}
             </>
