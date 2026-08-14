@@ -69,6 +69,12 @@ export default function EodPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [isSavingEntry, setIsSavingEntry] = useState(false);
+
   const canSubmit = role === "developer" || role === "manager";
 
   useEffect(() => {
@@ -292,6 +298,43 @@ export default function EodPage() {
     const { error } = await supabase.from("eod_entries").delete().eq("id", entryId);
     if (!error) {
       setEntries((current) => current.filter((e) => e.id !== entryId));
+    }
+  };
+
+  const startEditEntry = (entry: EodEntry) => {
+    setEditingEntryId(entry.id);
+    setEditLabel(entry.page_label);
+    setEditUrl(entry.page_url || "");
+    setEditNotes(entry.notes);
+  };
+
+  const cancelEditEntry = () => {
+    setEditingEntryId(null);
+    setEditLabel("");
+    setEditUrl("");
+    setEditNotes("");
+  };
+
+  const saveEditEntry = async () => {
+    if (editingEntryId === null) return;
+    const label = editLabel.trim();
+    const notes = editNotes.trim();
+    if (!label || !notes) return;
+
+    setIsSavingEntry(true);
+    const { data, error } = await supabase
+      .from("eod_entries")
+      .update({ page_label: label, page_url: editUrl.trim() || null, notes })
+      .eq("id", editingEntryId)
+      .select("*")
+      .single();
+    setIsSavingEntry(false);
+
+    if (!error && data) {
+      setEntries((current) =>
+        current.map((e) => (e.id === editingEntryId ? (data as EodEntry) : e))
+      );
+      cancelEditEntry();
     }
   };
 
@@ -656,40 +699,95 @@ export default function EodPage() {
                     )}
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {group.items.map((entry) => (
-                      <div key={entry.id} className="px-4 py-3 flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
-                            {entry.page_url ? (
-                              <a
-                                href={entry.page_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="hover:text-blue-600 hover:underline"
-                              >
-                                {entry.page_label}
-                              </a>
-                            ) : (
-                              entry.page_label
-                            )}
-                            {entry.is_new_page && (
-                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">
-                                New
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{entry.notes}</p>
+                    {group.items.map((entry) =>
+                      editingEntryId === entry.id ? (
+                        <div key={entry.id} className="px-4 py-3 space-y-2 bg-blue-50/30">
+                          <input
+                            type="text"
+                            value={editLabel}
+                            onChange={(e) => setEditLabel(e.target.value)}
+                            placeholder="Page name"
+                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={editUrl}
+                            onChange={(e) => setEditUrl(e.target.value)}
+                            placeholder="Page URL (optional)"
+                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          />
+                          <textarea
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
+                            placeholder="Describe what changed on this page..."
+                            rows={2}
+                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={saveEditEntry}
+                              disabled={isSavingEntry || !editLabel.trim() || !editNotes.trim()}
+                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                            >
+                              {isSavingEntry ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              Save
+                            </button>
+                            <button
+                              onClick={cancelEditEntry}
+                              disabled={isSavingEntry}
+                              className="px-3 py-1.5 text-gray-500 rounded-lg text-xs font-medium hover:bg-gray-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                        {isEditable && (
-                          <button
-                            onClick={() => deleteEntry(entry.id)}
-                            className="text-gray-300 hover:text-rose-500 shrink-0"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      ) : (
+                        <div key={entry.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                              {entry.page_url ? (
+                                <a
+                                  href={entry.page_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="hover:text-blue-600 hover:underline"
+                                >
+                                  {entry.page_label}
+                                </a>
+                              ) : (
+                                entry.page_label
+                              )}
+                              {entry.is_new_page && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">
+                                  New
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">{entry.notes}</p>
+                          </div>
+                          {isEditable && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => startEditEntry(entry)}
+                                className="text-gray-300 hover:text-blue-500"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => deleteEntry(entry.id)}
+                                className="text-gray-300 hover:text-rose-500"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
               );
