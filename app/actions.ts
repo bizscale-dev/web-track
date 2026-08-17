@@ -82,8 +82,20 @@ export async function triggerN8nWebhook(payload: {
       customMessage = `Pages Development For this Site Has Started`;
       break;
     case 'Sent For Content Demand':
-      const demandNotes = payload.customNotes ? payload.customNotes : '*(No pages specified)*';
-      customMessage = `Content demand requirements are needed for this site.\n\n*Target Pages / Notes:*\n${demandNotes}`;
+      let demandPagesStr = '*(No pages found in the Pages Tracker for this website)*';
+      if (targetWebsiteId) {
+        const { data: trackerPages } = await adminDb
+          .from('website_pages')
+          .select('title')
+          .eq('website_id', targetWebsiteId)
+          .order('sort_order', { ascending: true });
+
+        if (trackerPages && trackerPages.length > 0) {
+          demandPagesStr = trackerPages.map(p => `- ${p.title}`).join('\n');
+        }
+      }
+      const demandNotesLine = payload.customNotes ? `\n\n*Notes:*\n${payload.customNotes}` : '';
+      customMessage = `Content demand requirements are needed for this site.\n\n*Pages:*\n${demandPagesStr}${demandNotesLine}`;
       break;
     case 'Sent For Content':
       let pagesListStr = '*(No pages found in the database for this website)*';
