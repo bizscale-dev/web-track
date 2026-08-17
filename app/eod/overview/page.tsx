@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import type { EodReportWithEntries } from "@/type/eod";
@@ -12,6 +13,7 @@ import {
   ChevronRight,
   CheckCircle2,
   Clock,
+  ArrowLeft,
 } from "lucide-react";
 
 type DateFilter = "today" | "week" | "all";
@@ -95,6 +97,12 @@ export default function EodOverviewPage() {
 
   return (
     <main className="p-4 sm:p-8 max-w-5xl mx-auto w-full">
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+      </Link>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-teal-600 text-white rounded-xl shadow-sm">
