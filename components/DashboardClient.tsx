@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText } from "lucide-react";
+import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck } from "lucide-react";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -247,6 +247,12 @@ export default function DashboardClient({
             )}
 
             <div className="flex w-full sm:w-auto gap-3">
+              {(role === "developer" || role === "manager" || role === "admin") && (
+                <Link href="/site-reviews" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(79,70,229,0.18)] transition hover:-translate-y-0.5 hover:bg-indigo-700">
+                  <ShieldCheck className="w-4 h-4" /> Site Reviews
+                </Link>
+              )}
+
               {role === "admin" || role === "manager" ? (
                 <Link href="/websites/new" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700">
                   + Add Website
