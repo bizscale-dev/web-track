@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
-import { getEodSiteOptions } from "@/app/eodActions";
+import { getReviewSiteOptions } from "@/app/siteReviewsActions";
 import type { EodSiteOption } from "@/type/eod";
-import type { SiteReview } from "@/type/siteReview";
+import type { ManualReviewSite, SiteReview } from "@/type/siteReview";
 import {
   Loader2,
   ShieldAlert,
@@ -15,7 +15,14 @@ import {
   ArrowLeft,
   CheckCircle2,
   Globe,
+  PlusCircle,
 } from "lucide-react";
+
+function normalizeSiteLink(link: string): string {
+  const trimmed = link.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 
 function getPeriodKey(date: Date): string {
   const year = date.getFullYear();
@@ -55,6 +62,12 @@ export default function SiteReviewsPage() {
   const [togglingSite, setTogglingSite] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
 
+  const [isAddingManualSite, setIsAddingManualSite] = useState(false);
+  const [manualSiteName, setManualSiteName] = useState("");
+  const [manualSiteLink, setManualSiteLink] = useState("");
+  const [isSavingManualSite, setIsSavingManualSite] = useState(false);
+  const [manualSiteError, setManualSiteError] = useState<string | null>(null);
+
   const periodKey = useMemo(() => getPeriodKey(new Date()), []);
   const periodLabel = useMemo(() => getPeriodLabel(new Date()), []);
 
@@ -68,13 +81,52 @@ export default function SiteReviewsPage() {
   const loadSites = async () => {
     setIsLoadingSites(true);
     setSitesError(null);
-    const options = await getEodSiteOptions();
-    const liveOnly = options.filter((s) => s.status === "live");
-    if (options.length === 0) {
+
+    const [sheetOptions, manualResult] = await Promise.all([
+      getReviewSiteOptions(),
+      supabase.from("manual_review_sites").select("*").order("site_name", { ascending: true }),
+    ]);
+
+    if (sheetOptions.length === 0) {
       setSitesError("Could not load site list — check sheet connectivity.");
     }
-    setSites(liveOnly);
+
+    const seen = new Set(sheetOptions.map((s) => s.name.toLowerCase()));
+    const manualOptions: EodSiteOption[] = ((manualResult.data as ManualReviewSite[]) || [])
+      .filter((m) => !seen.has(m.site_name.toLowerCase()))
+      .map((m) => ({ name: m.site_name, domain: m.site_domain, status: "manual" as const }));
+
+    setSites(
+      [...sheetOptions, ...manualOptions].sort((a, b) => a.name.localeCompare(b.name))
+    );
     setIsLoadingSites(false);
+  };
+
+  const addManualSite = async () => {
+    const trimmedName = manualSiteName.trim();
+    if (!trimmedName) return;
+
+    setIsSavingManualSite(true);
+    setManualSiteError(null);
+
+    const { error } = await supabase.from("manual_review_sites").insert({
+      site_name: trimmedName,
+      site_domain: manualSiteLink.trim() ? normalizeSiteLink(manualSiteLink) : null,
+      added_by_name: name || "Unknown Operator",
+      added_by_email: email || "",
+    });
+
+    setIsSavingManualSite(false);
+
+    if (error) {
+      setManualSiteError(`Couldn't add "${trimmedName}": ${error.message}`);
+      return;
+    }
+
+    setManualSiteName("");
+    setManualSiteLink("");
+    setIsAddingManualSite(false);
+    await loadSites();
   };
 
   const loadReviews = async () => {
@@ -221,6 +273,64 @@ export default function SiteReviewsPage() {
         />
       </div>
 
+      {manualSiteError && (
+        <div className="p-4 mb-4 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">
+          {manualSiteError}
+        </div>
+      )}
+
+      {isAddingManualSite ? (
+        <div className="p-4 mb-4 border border-indigo-200 bg-indigo-50/40 rounded-xl space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Add site manually</p>
+          <input
+            type="text"
+            value={manualSiteName}
+            onChange={(e) => setManualSiteName(e.target.value)}
+            placeholder="Site name"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+          />
+          <input
+            type="text"
+            value={manualSiteLink}
+            onChange={(e) => setManualSiteLink(e.target.value)}
+            placeholder="Site URL (optional, e.g. example.com)"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={addManualSite}
+              disabled={isSavingManualSite || !manualSiteName.trim()}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+            >
+              {isSavingManualSite ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+              Add Site
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddingManualSite(false);
+                setManualSiteName("");
+                setManualSiteLink("");
+                setManualSiteError(null);
+              }}
+              disabled={isSavingManualSite}
+              className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsAddingManualSite(true)}
+          className="w-full flex items-center justify-center gap-2 p-3 mb-4 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all"
+        >
+          <PlusCircle className="w-4 h-4" /> Can't find your site? Add it manually
+        </button>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -264,7 +374,14 @@ export default function SiteReviewsPage() {
                 </button>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-800">{site.name}</p>
+                  <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                    {site.name}
+                    {site.status === "manual" && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
+                        Manual
+                      </span>
+                    )}
+                  </p>
                   {site.domain && (
                     <a
                       href={site.domain}
