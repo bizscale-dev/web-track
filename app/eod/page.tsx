@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { getEodSiteOptions, getSitePages } from "@/app/eodActions";
-import type { EodEntry, EodReport, EodSiteOption, EodSitePage } from "@/type/eod";
+import type { EodEntry, EodReport, EodReportWithEntries, EodSiteOption, EodSitePage } from "@/type/eod";
 import {
   Loader2,
   ShieldAlert,
@@ -20,6 +20,10 @@ import {
   X,
   Pencil,
   PlusCircle,
+  ChevronDown,
+  ChevronRight,
+  History,
+  Clock,
 } from "lucide-react";
 
 function normalizeSiteLink(link: string): string {
@@ -75,6 +79,11 @@ export default function EodPage() {
   const [editNotes, setEditNotes] = useState("");
   const [isSavingEntry, setIsSavingEntry] = useState(false);
 
+  const [pastReports, setPastReports] = useState<EodReportWithEntries[]>([]);
+  const [isLoadingPastReports, setIsLoadingPastReports] = useState(false);
+  const [showPastReports, setShowPastReports] = useState(false);
+  const [expandedPastReports, setExpandedPastReports] = useState<Set<number>>(new Set());
+
   const canSubmit = role === "developer" || role === "manager";
 
   useEffect(() => {
@@ -121,6 +130,34 @@ export default function EodPage() {
     }
 
     setIsLoading(false);
+    loadPastReports(memberEmail);
+  };
+
+  const loadPastReports = async (forEmail: string) => {
+    if (!forEmail) return;
+    setIsLoadingPastReports(true);
+
+    const { data } = await supabase
+      .from("eod_reports")
+      .select("*, eod_entries(*)")
+      .eq("team_member_email", forEmail)
+      .neq("report_date", todayIso())
+      .order("report_date", { ascending: false });
+
+    const withActivity = ((data as EodReportWithEntries[]) || []).filter(
+      (r) => r.eod_entries.length > 0
+    );
+    setPastReports(withActivity);
+    setIsLoadingPastReports(false);
+  };
+
+  const togglePastReport = (id: number) => {
+    setExpandedPastReports((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const loadSiteOptions = async () => {
@@ -792,6 +829,146 @@ export default function EodPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mt-6">
+        <button
+          onClick={() => setShowPastReports((current) => !current)}
+          className="w-full flex items-center justify-between gap-3 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-gray-400" />
+            <h2 className="text-lg font-bold text-gray-900">My Previous EODs</h2>
+            {!isLoadingPastReports && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                {pastReports.length}
+              </span>
+            )}
+          </div>
+          {showPastReports ? (
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+          )}
+        </button>
+
+        {showPastReports && (
+          <div className="mt-4">
+            {isLoadingPastReports ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              </div>
+            ) : pastReports.length === 0 ? (
+              <p className="text-sm text-gray-500 italic py-6 text-center">No previous EOD reports yet.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {pastReports.map((pastReport) => {
+                  const isOpen = expandedPastReports.has(pastReport.id);
+                  const entriesBySite = Object.values(
+                    pastReport.eod_entries.reduce(
+                      (groups: Record<string, { siteName: string; items: typeof pastReport.eod_entries }>, entry) => {
+                        if (!groups[entry.site_name]) groups[entry.site_name] = { siteName: entry.site_name, items: [] };
+                        groups[entry.site_name].items.push(entry);
+                        return groups;
+                      },
+                      {}
+                    )
+                  );
+
+                  return (
+                    <div key={pastReport.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => togglePastReport(pastReport.id)}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          {isOpen ? (
+                            <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                          )}
+                          <div>
+                            <p className="font-bold text-sm text-gray-900">{pastReport.report_date}</p>
+                            <p className="text-xs text-gray-400">
+                              {pastReport.eod_entries.length} page{pastReport.eod_entries.length === 1 ? "" : "s"} across{" "}
+                              {entriesBySite.length} site{entriesBySite.length === 1 ? "" : "s"}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 ${
+                            pastReport.status === "submitted"
+                              ? "text-emerald-600 bg-emerald-50 border border-emerald-100"
+                              : "text-amber-600 bg-amber-50 border border-amber-100"
+                          }`}
+                        >
+                          {pastReport.status === "submitted" ? (
+                            <CheckCircle2 className="w-3 h-3" />
+                          ) : (
+                            <Clock className="w-3 h-3" />
+                          )}
+                          {pastReport.status === "submitted" ? "Submitted" : "In Progress"}
+                        </span>
+                      </button>
+
+                      {isOpen && (
+                        <div className="border-t border-gray-100 divide-y divide-gray-100">
+                          {entriesBySite.map((group) => {
+                            const siteDomain = group.items[0]?.site_domain;
+                            return (
+                              <div key={group.siteName} className="px-4 py-3">
+                                <p className="text-sm font-bold text-gray-800 mb-2">
+                                  {siteDomain ? (
+                                    <a
+                                      href={siteDomain}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="hover:text-blue-600 hover:underline"
+                                    >
+                                      {group.siteName}
+                                    </a>
+                                  ) : (
+                                    group.siteName
+                                  )}
+                                </p>
+                                <div className="space-y-2 pl-2 border-l-2 border-gray-100">
+                                  {group.items.map((entry) => (
+                                    <div key={entry.id} className="pl-3">
+                                      <p className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+                                        {entry.page_url ? (
+                                          <a
+                                            href={entry.page_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="hover:text-blue-600 hover:underline"
+                                          >
+                                            {entry.page_label}
+                                          </a>
+                                        ) : (
+                                          entry.page_label
+                                        )}
+                                        {entry.is_new_page && (
+                                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">
+                                            New
+                                          </span>
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-0.5">{entry.notes}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

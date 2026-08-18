@@ -53,7 +53,7 @@ export default function SecureStatusDropdown({ site }: { site: any }) {
       <option value="Sent For Content">Sent For Content</option>
       <option value="Content Completed">Content Completed</option>
       <option value="Content Updated">Content Updated</option>
-      <option value="Domain Connection">Domain Connection</option>
+      <option value="Client Changes & Domain Connection">Client Changes & Domain Connection</option>
       <option value="Completed">Completed</option>
       <option value="Initial SEO">Initial SEO</option>
     </select>

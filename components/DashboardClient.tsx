@@ -62,7 +62,7 @@ export default function DashboardClient({
           "Sent For Content",
           "Content Completed",
           "Content Updated",
-          "Domain Connection",
+          "Client Changes & Domain Connection",
         ].includes(website.status || "");
       } else if (viewFilter === "Completed") {
         matchesStatus = ["Completed", "Initial SEO"].includes(website.status || "");

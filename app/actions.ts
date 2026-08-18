@@ -12,7 +12,7 @@ const statusEmojis: Record<string, string> = {
   'Sent For Content': '📝',
   'Content Completed': '✅',
   'Content Updated': '🔄',
-  'Domain Connection': '🌐',
+  'Client Changes & Domain Connection': '🌐',
   'Completed': '🎉',
   'Initial SEO': '🚀'
 };
@@ -117,8 +117,8 @@ export async function triggerN8nWebhook(payload: {
     case 'Content Updated':
       customMessage = `Content updates have been pushed to the site.`;
       break;
-    case 'Domain Connection':
-      customMessage = `The site is ready for domain connection and final DNS routing.`;
+    case 'Client Changes & Domain Connection':
+      customMessage = `The site is ready for client-requested changes and final domain connection / DNS routing.`;
       break;
     case 'Completed':
       customMessage = `Website development and launch are officially completed.`;
@@ -130,7 +130,7 @@ export async function triggerN8nWebhook(payload: {
       customMessage = `Status changed from ${payload.oldStatus} to ${payload.newStatus}.`;
   }
 
-  const showUrl = !['Domain Connection', 'Completed'].includes(payload.newStatus);
+  const showUrl = !['Client Changes & Domain Connection', 'Completed'].includes(payload.newStatus);
   const urlLine = showUrl ? `\n*URL:* ${cleanDomain}` : '';
 
   // CONCATENATE THE MENTION STRING DIRECTLY INTO THE MESSAGE

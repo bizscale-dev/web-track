@@ -5,7 +5,7 @@ export const WEBSITE_STATUSES = [
   "Sent For Content",
   "Content Completed",
   "Content Updated",
-  "Domain Connection",
+  "Client Changes & Domain Connection",
   "Completed",
   "Initial SEO",
 ];
