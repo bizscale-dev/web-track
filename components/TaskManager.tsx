@@ -5,30 +5,43 @@ import { supabase } from '@/lib/supabase';
 type TaskCompletion = { name: string; email: string; completedAt: string };
 type Task = { id: string; text: string; completions: TaskCompletion[] };
 
-const DEFAULT_TASK_DEFS: { id: string; text: string }[] = [
-  { id: 't1', text: 'Global Font Sizes & Colors' },
-  { id: 't2', text: 'Header' },
-  { id: 't3', text: 'Footer' },
-  { id: 't4', text: 'Pages Dev' },
-  { id: 't5', text: '404 Page' },
-  { id: 't6', text: 'Mobile Responsiveness' },
-  { id: 't7', text: 'Content' },
-  { id: 't8', text: 'Metas' },
-  { id: 't9', text: 'Social Handles' },
-  { id: 't10', text: 'Business Info' },
-  { id: 't11', text: 'Semantic HTML' },
-  { id: 't12', text: 'Accessibility Tree' },
-  { id: 't13', text: 'Images' },
-  { id: 't14', text: 'Business Images - Before/After' },
-  { id: 't15', text: 'Links' },
-  { id: 't16', text: 'Form Testing' },
-  { id: 't17', text: 'Captcha' },
-  { id: 't18', text: 'Original Stats' },
-  { id: 't19', text: 'Wordfence Config' },
-  { id: 't20', text: 'Login URL Change' },
+type TaskGroup = 'before' | 'after';
+
+const DEFAULT_TASK_DEFS: { id: string; text: string; group: TaskGroup }[] = [
+  { id: 't1', text: 'Global Font Sizes & Colors', group: 'before' },
+  { id: 't2', text: 'Header', group: 'before' },
+  { id: 't3', text: 'Footer', group: 'before' },
+  { id: 't4', text: 'Pages Dev', group: 'before' },
+  { id: 't5', text: '404 Page', group: 'before' },
+  { id: 't6', text: 'Mobile Responsiveness', group: 'before' },
+  { id: 't7', text: 'Content', group: 'before' },
+  { id: 't8', text: 'Metas', group: 'before' },
+  { id: 't9', text: 'Social Handles', group: 'before' },
+  { id: 't10', text: 'Business Info', group: 'before' },
+  { id: 't11', text: 'Semantic HTML', group: 'before' },
+  { id: 't12', text: 'Accessibility Tree', group: 'before' },
+  { id: 't13', text: 'Images', group: 'before' },
+  { id: 't14', text: 'Business Images - Before/After', group: 'before' },
+  { id: 't15', text: 'Links', group: 'before' },
+  { id: 't16', text: 'Form Testing', group: 'before' },
+  { id: 't17', text: 'Captcha', group: 'before' },
+  { id: 't18', text: 'Original Stats', group: 'after' },
+  { id: 't19', text: 'Wordfence Config', group: 'after' },
+  { id: 't20', text: 'Login URL Change', group: 'after' },
 ];
 
-const defaultTasks: Task[] = DEFAULT_TASK_DEFS.map((t) => ({ ...t, completions: [] }));
+const defaultTasks: Task[] = DEFAULT_TASK_DEFS.map(({ group, ...t }) => ({ ...t, completions: [] }));
+
+// Tasks aren't saved with a group — it's derived by matching text against the
+// defaults above, so this works for both freshly-seeded tasks and ones added
+// later via "Add Default Tasks" (which get a timestamp-prefixed id).
+const DEFAULT_TASK_GROUP_BY_TEXT: Record<string, TaskGroup> = Object.fromEntries(
+  DEFAULT_TASK_DEFS.map((t) => [t.text.trim().toLowerCase(), t.group])
+);
+
+function getTaskGroup(task: Task): TaskGroup {
+  return DEFAULT_TASK_GROUP_BY_TEXT[task.text.trim().toLowerCase()] || 'before';
+}
 
 // Older saved tasks used a single `completed`/`completedAt` boolean pair.
 // Normalize those into the new multi-person `completions` shape on load.
@@ -49,6 +62,7 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
   });
   const [newTaskText, setNewTaskText] = useState('');
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [activeGroup, setActiveGroup] = useState<TaskGroup>('before');
 
   useEffect(() => {
     (async () => {
@@ -123,6 +137,12 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
     saveToSupabase(updatedTasks);
   };
 
+  const beforeTasks = tasks.filter((task) => getTaskGroup(task) === 'before');
+  const afterTasks = tasks.filter((task) => getTaskGroup(task) === 'after');
+  const groupedTasks = activeGroup === 'before' ? beforeTasks : afterTasks;
+  const beforeDoneCount = beforeTasks.filter((task) => task.completions.length > 0).length;
+  const afterDoneCount = afterTasks.filter((task) => task.completions.length > 0).length;
+
   const existingTaskTexts = new Set(tasks.map((task) => task.text.trim().toLowerCase()));
   const missingDefaultTasks = defaultTasks.filter(
     (task) => !existingTaskTexts.has(task.text.trim().toLowerCase())
@@ -166,8 +186,36 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
         </button>
       </div>
 
+      <div className="flex gap-1.5 mb-4 bg-gray-100/80 p-1 rounded-xl">
+        <button
+          type="button"
+          onClick={() => setActiveGroup('before')}
+          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+            activeGroup === 'before'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Before Domain Connection <span className="opacity-60">({beforeDoneCount}/{beforeTasks.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveGroup('after')}
+          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+            activeGroup === 'after'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          After Domain Connection <span className="opacity-60">({afterDoneCount}/{afterTasks.length})</span>
+        </button>
+      </div>
+
       <div className="space-y-2 mb-6">
-        {tasks.map((task) => {
+        {groupedTasks.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-6">No tasks in this group yet.</p>
+        )}
+        {groupedTasks.map((task) => {
           const isCheckedByMe = !!currentUser && task.completions.some((c) => c.email === currentUser.email);
           const isDone = task.completions.length > 0;
           const sortedCompletions = [...task.completions].sort(
