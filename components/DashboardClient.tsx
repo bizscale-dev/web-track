@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck } from "lucide-react";
+import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck, Globe, AlertTriangle } from "lucide-react";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -45,6 +45,16 @@ export default function DashboardClient({
     nextStatus: "",
     notes: "",
     websiteName: ""
+  });
+
+  const [seoModal, setSeoModal] = useState({
+    isOpen: false,
+    websiteId: 0,
+    nextStatus: "",
+    domain: "",
+    websiteName: "",
+    isSaving: false,
+    error: "",
   });
 
   const filteredWebsites = useMemo(() => {
@@ -91,7 +101,7 @@ export default function DashboardClient({
 
     if (nextStatus === "Sent For Content Demand") {
       const { data } = await supabase.from("websites").select("notes").eq("id", websiteId).single();
-      
+
       setDemandModal({
         isOpen: true,
         websiteId: websiteId,
@@ -99,13 +109,57 @@ export default function DashboardClient({
         notes: data?.notes || "",
         websiteName: currentWebsite.website_name
       });
-      return; 
+      return;
+    }
+
+    if (nextStatus === "Initial SEO") {
+      setSeoModal({
+        isOpen: true,
+        websiteId: websiteId,
+        nextStatus: nextStatus,
+        domain: currentWebsite.domain || "",
+        websiteName: currentWebsite.website_name,
+        isSaving: false,
+        error: "",
+      });
+      return;
     }
 
     executeStatusChange(websiteId, nextStatus);
   }
 
-  async function executeStatusChange(websiteId: number, nextStatus: string, customNotes?: string) {
+  async function confirmSeoModal() {
+    const { websiteId, nextStatus, domain } = seoModal;
+    const currentWebsite = websites.find((website) => website.id === websiteId);
+    if (!currentWebsite) return;
+
+    const trimmedDomain = domain.trim();
+    const domainChanged = (currentWebsite.domain || "") !== trimmedDomain;
+
+    if (domainChanged) {
+      setSeoModal((current) => ({ ...current, isSaving: true, error: "" }));
+      const { error: domainError } = await supabase
+        .from("websites")
+        .update({ domain: trimmedDomain || null })
+        .eq("id", websiteId);
+
+      if (domainError) {
+        setSeoModal((current) => ({ ...current, isSaving: false, error: domainError.message }));
+        return;
+      }
+
+      setWebsites((current) =>
+        current.map((website) =>
+          website.id === websiteId ? { ...website, domain: trimmedDomain || null } : website
+        )
+      );
+    }
+
+    setSeoModal((current) => ({ ...current, isOpen: false, isSaving: false }));
+    executeStatusChange(websiteId, nextStatus, undefined, domainChanged ? trimmedDomain : undefined);
+  }
+
+  async function executeStatusChange(websiteId: number, nextStatus: string, customNotes?: string, domainOverride?: string) {
     const currentWebsite = websites.find((website) => website.id === websiteId);
     if (!currentWebsite) return;
 
@@ -142,7 +196,7 @@ export default function DashboardClient({
       triggerN8nWebhook({
               event: 'status_changed',
               websiteName: currentWebsite.website_name,
-              domain: currentWebsite.domain || "N/A",
+              domain: (domainOverride !== undefined ? domainOverride : currentWebsite.domain) || "N/A",
               oldStatus: previousStatus || "None", // <-- THE FIX: Added fallback string
               newStatus: nextStatus,
               websiteId: websiteId,
@@ -388,6 +442,63 @@ export default function DashboardClient({
                   className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all"
                 >
                   Confirm & Notify Ammar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {seoModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 transition-opacity">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-lg overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-black text-lg text-slate-900">Confirm Domain: {seoModal.websiteName}</h3>
+              </div>
+              <button
+                onClick={() => setSeoModal({ ...seoModal, isOpen: false })}
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-slate-600 mb-4 bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  Confirm the live domain before sending this site for Initial SEO. Fix it here if it's still
+                  pointing at a temporary subdomain — this updates the website record too.
+                </span>
+              </p>
+
+              <input
+                type="text"
+                className="w-full px-4 py-2.5 text-sm text-slate-700 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                value={seoModal.domain}
+                onChange={(e) => setSeoModal({ ...seoModal, domain: e.target.value, error: "" })}
+                placeholder="https://example.com"
+              />
+
+              {seoModal.error && (
+                <p className="text-xs font-bold text-rose-600 mt-2">{seoModal.error}</p>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setSeoModal({ ...seoModal, isOpen: false })}
+                  disabled={seoModal.isSaving}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmSeoModal}
+                  disabled={seoModal.isSaving || !seoModal.domain.trim()}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition-all"
+                >
+                  {seoModal.isSaving ? "Saving..." : "Confirm & Send to SEO"}
                 </button>
               </div>
             </div>
