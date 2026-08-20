@@ -4,6 +4,9 @@ export type EodSiteOption = {
   name: string;
   domain: string | null;
   status: EodSiteStatus;
+  // Only set for in-progress sites sourced from our own `websites` table —
+  // used to pull pages from the Pages Tracker (`website_tasks`) instead of a sitemap.
+  websiteId?: number;
 };
 
 export type EodSitePage = {

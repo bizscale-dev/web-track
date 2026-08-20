@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
-import { getEodSiteOptions, getSitePages } from "@/app/eodActions";
+import { getSitePages } from "@/app/eodActions";
+import { getReviewSiteOptions } from "@/app/siteReviewsActions";
 import type { EodEntry, EodReport, EodReportWithEntries, EodSiteOption, EodSitePage } from "@/type/eod";
 import {
   Loader2,
@@ -163,11 +164,35 @@ export default function EodPage() {
   const loadSiteOptions = async () => {
     setIsLoadingSites(true);
     setSiteOptionsError(null);
-    const options = await getEodSiteOptions();
-    if (options.length === 0) {
+
+    const [liveOptions, inProgressResult] = await Promise.all([
+      getReviewSiteOptions(),
+      supabase.from("websites").select("id, website_name, domain, status"),
+    ]);
+
+    // Sites still in development (anything before "Completed") aren't in the
+    // live-clients sheet yet — surface them as subdomains, sourced from our own
+    // `websites` table, so EOD entries can be logged before go-live.
+    const inProgressOptions: EodSiteOption[] = (inProgressResult.data || [])
+      .filter((w: any) => !["Completed", "Initial SEO"].includes(w.status || ""))
+      .map((w: any) => ({
+        name: w.website_name,
+        domain: w.domain,
+        status: "subdomain_wip" as const,
+        websiteId: w.id,
+      }));
+
+    if (liveOptions.length === 0 && inProgressOptions.length === 0) {
       setSiteOptionsError("Could not load site list — check sheet connectivity.");
     }
-    setSiteOptions(options);
+
+    const seenLive = new Set(liveOptions.map((s) => s.name.toLowerCase()));
+    const merged = [
+      ...liveOptions,
+      ...inProgressOptions.filter((s) => !seenLive.has(s.name.toLowerCase())),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
+    setSiteOptions(merged);
     setIsLoadingSites(false);
   };
 
@@ -181,7 +206,21 @@ export default function EodPage() {
     setSitePages([]);
     setSitePagesError(null);
 
-    if (site.domain) {
+    if (site.status === "subdomain_wip" && site.websiteId) {
+      setIsLoadingPages(true);
+      const { data, error } = await supabase
+        .from("website_tasks")
+        .select("title, url")
+        .eq("website_id", site.websiteId)
+        .order("created_at", { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        setSitePagesError("No pages found in the Pages Tracker for this site");
+      } else {
+        setSitePages(data.map((t) => ({ label: t.title, url: t.url || "" })));
+      }
+      setIsLoadingPages(false);
+    } else if (site.domain) {
       setIsLoadingPages(true);
       const { pages, error } = await getSitePages(site.domain);
       setSitePages(pages);
