@@ -15,7 +15,15 @@ export default function TopAuthBar() {
   if (pathname === '/') return null;
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // scope: 'local' clears the session on this device only, without waiting on
+    // a network call to Supabase's Auth API — if that service is slow or down,
+    // "Drop Access" must still work instantly rather than hang forever.
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Even if this throws (e.g. offline), fall through and redirect anyway —
+      // the whole point of local scope is to not depend on network health.
+    }
     window.location.href = "/"; // Force a hard reset of the application state
   };
 

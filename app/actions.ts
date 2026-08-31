@@ -85,10 +85,10 @@ export async function triggerN8nWebhook(payload: {
       let demandPagesStr = '*(No pages found in the Pages Tracker for this website)*';
       if (targetWebsiteId) {
         const { data: trackerPages } = await adminDb
-          .from('website_pages')
+          .from('website_tasks')
           .select('title')
           .eq('website_id', targetWebsiteId)
-          .order('sort_order', { ascending: true });
+          .order('created_at', { ascending: true });
 
         if (trackerPages && trackerPages.length > 0) {
           demandPagesStr = trackerPages.map(p => `- ${p.title}`).join('\n');

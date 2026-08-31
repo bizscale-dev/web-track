@@ -12,7 +12,16 @@ const SHEET_TAB = 'Active Clients';
 // Column K = Site URL, Column L = Client Name
 const DATA_RANGES = [`'${SHEET_TAB}'!C2:D1000`, `'${SHEET_TAB}'!K2:L1000`];
 
+// Reused across requests on the same warm serverless instance — avoids paying
+// for a full OAuth token exchange (a real network round trip to Google) on
+// every single page load. Tokens are valid ~1hr; refreshed 60s before expiry.
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
 async function getAccessToken(): Promise<string | null> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
   const clientId = process.env.GOOGLE_SHEETS_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_SHEETS_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_SHEETS_REFRESH_TOKEN;
@@ -32,7 +41,13 @@ async function getAccessToken(): Promise<string | null> {
 
   if (!res.ok) return null;
   const data = await res.json();
-  return data.access_token || null;
+  if (!data.access_token) return null;
+
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + ((data.expires_in || 3600) - 60) * 1000,
+  };
+  return cachedToken.token;
 }
 
 function originOf(url: string): string | null {
@@ -52,7 +67,9 @@ export async function getReviewSiteOptions(): Promise<EodSiteOption[]> {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchGet?${rangeParams}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
+      // The sheet doesn't change second-to-second — reuse the response for a
+      // minute instead of round-tripping to Google on every page load.
+      next: { revalidate: 60 },
     });
     if (!res.ok) return [];
 
