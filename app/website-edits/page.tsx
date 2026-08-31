@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
-import { getWebsiteEditsTabs, WEBSITE_EDITS_DOC_URL } from "@/app/websiteEditsActions";
+import { getWebsiteEditsTabs, appendToWebsiteEditsTab } from "@/app/websiteEditsActions";
 import type { WebsiteEditsBlock, WebsiteEditsRun, WebsiteEditsTab } from "@/type/websiteEdits";
 import {
   Loader2,
@@ -12,7 +12,11 @@ import {
   Search,
   ArrowLeft,
   ExternalLink,
+  PlusCircle,
 } from "lucide-react";
+
+const WEBSITE_EDITS_DOC_URL =
+  "https://docs.google.com/document/d/1LoGRk5TxbPtRCZ4BUAtQyqmJdDXwfYQ9jLI_10mhAtU/edit?usp=sharing";
 
 function RunText({ run }: { run: WebsiteEditsRun }) {
   const content = run.bold && run.italic ? (
@@ -104,20 +108,60 @@ export default function WebsiteEditsPage() {
   const [search, setSearch] = useState("");
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
+  const [showAddEntry, setShowAddEntry] = useState(false);
+  const [newEntryText, setNewEntryText] = useState("");
+  const [isAddingEntry, setIsAddingEntry] = useState(false);
+  const [addEntryError, setAddEntryError] = useState<string | null>(null);
+
   useEffect(() => {
     if (canView) loadTabs();
   }, [canView]);
 
   const loadTabs = async () => {
     setIsLoading(true);
-    const data = await getWebsiteEditsTabs();
-    if (data.length === 0) {
+    setError(null);
+    try {
+      const data = await getWebsiteEditsTabs();
+      if (data.length === 0) {
+        setError("Could not load the Website Edits doc — check connectivity.");
+      } else {
+        setActiveTabId((current) => current ?? data[0].id);
+      }
+      setTabs(data);
+    } catch {
+      // Even if the server action call itself fails (network blip, deploy in
+      // flight, etc.) the page must resolve out of the loading state.
       setError("Could not load the Website Edits doc — check connectivity.");
-    } else {
-      setActiveTabId((current) => current ?? data[0].id);
+    } finally {
+      setIsLoading(false);
     }
-    setTabs(data);
-    setIsLoading(false);
+  };
+
+  const selectTab = (tabId: string) => {
+    setActiveTabId(tabId);
+    setShowAddEntry(false);
+    setNewEntryText("");
+    setAddEntryError(null);
+  };
+
+  const submitNewEntry = async () => {
+    if (!activeTabId || !newEntryText.trim()) return;
+
+    setIsAddingEntry(true);
+    setAddEntryError(null);
+
+    const result = await appendToWebsiteEditsTab(activeTabId, newEntryText);
+
+    if (!result.success) {
+      setAddEntryError(result.error || "Could not save that entry.");
+      setIsAddingEntry(false);
+      return;
+    }
+
+    setNewEntryText("");
+    setShowAddEntry(false);
+    setIsAddingEntry(false);
+    await loadTabs();
   };
 
   const filteredTabs = tabs.filter((t) =>
@@ -197,7 +241,7 @@ export default function WebsiteEditsPage() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTabId(tab.id)}
+                  onClick={() => selectTab(tab.id)}
                   style={{ paddingLeft: `${12 + tab.depth * 14}px` }}
                   className={`text-left px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap lg:whitespace-normal transition-colors shrink-0 ${
                     activeTabId === tab.id
@@ -216,15 +260,68 @@ export default function WebsiteEditsPage() {
 
           <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
             {activeTab ? (
-              activeTab.blocks.length > 0 ? (
-                <div>
-                  {activeTab.blocks.map((block, i) => (
-                    <Block key={i} block={block} />
-                  ))}
+              <>
+                {activeTab.blocks.length > 0 ? (
+                  <div>
+                    {activeTab.blocks.map((block, i) => (
+                      <Block key={i} block={block} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 text-center py-10">This tab is empty.</p>
+                )}
+
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  {addEntryError && (
+                    <p className="text-sm text-rose-600 mb-3">{addEntryError}</p>
+                  )}
+
+                  {showAddEntry ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={newEntryText}
+                        onChange={(e) => setNewEntryText(e.target.value)}
+                        placeholder={`Add a new edit request for ${activeTab.title}...`}
+                        rows={4}
+                        autoFocus
+                        className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={submitNewEntry}
+                          disabled={isAddingEntry || !newEntryText.trim()}
+                          className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-bold hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                        >
+                          {isAddingEntry ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+                          {isAddingEntry ? "Saving to doc..." : "Add to doc"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddEntry(false);
+                            setNewEntryText("");
+                            setAddEntryError(null);
+                          }}
+                          disabled={isAddingEntry}
+                          className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400">This writes directly to the Google Doc, right after the existing content on this tab.</p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddEntry(true)}
+                      className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50 transition-all"
+                    >
+                      <PlusCircle className="w-4 h-4" /> Add a new edit request to this tab
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-10">This tab is empty.</p>
-              )
+              </>
             ) : (
               <p className="text-sm text-gray-400 text-center py-10">Select a tab to view its edit requests.</p>
             )}

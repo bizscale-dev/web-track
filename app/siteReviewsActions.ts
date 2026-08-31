@@ -1,6 +1,7 @@
 'use server';
 
 import { getGoogleAccessToken } from '@/lib/googleAuth';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import type { EodSiteOption } from '@/type/eod';
 
 // Separate Google Sheet from the EOD one — accessed via OAuth (the org blocks
@@ -28,7 +29,7 @@ export async function getReviewSiteOptions(): Promise<EodSiteOption[]> {
 
     const rangeParams = DATA_RANGES.map((r) => `ranges=${encodeURIComponent(r)}`).join('&');
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchGet?${rangeParams}`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
       // The sheet doesn't change second-to-second — reuse the response for a
       // minute instead of round-tripping to Google on every page load.

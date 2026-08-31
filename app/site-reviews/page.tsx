@@ -136,24 +136,29 @@ export default function SiteReviewsPage() {
     setIsLoadingSites(true);
     setSitesError(null);
 
-    const [sheetOptions, manualResult] = await Promise.all([
-      getReviewSiteOptions(),
-      supabase.from("manual_review_sites").select("*").order("site_name", { ascending: true }),
-    ]);
+    try {
+      const [sheetOptions, manualResult] = await Promise.all([
+        getReviewSiteOptions(),
+        supabase.from("manual_review_sites").select("*").order("site_name", { ascending: true }),
+      ]);
 
-    if (sheetOptions.length === 0) {
+      if (sheetOptions.length === 0) {
+        setSitesError("Could not load site list — check sheet connectivity.");
+      }
+
+      const seen = new Set(sheetOptions.map((s) => s.name.toLowerCase()));
+      const manualOptions: EodSiteOption[] = ((manualResult.data as ManualReviewSite[]) || [])
+        .filter((m) => !seen.has(m.site_name.toLowerCase()))
+        .map((m) => ({ name: m.site_name, domain: m.site_domain, status: "manual" as const }));
+
+      setSites(
+        [...sheetOptions, ...manualOptions].sort((a, b) => a.name.localeCompare(b.name))
+      );
+    } catch {
       setSitesError("Could not load site list — check sheet connectivity.");
+    } finally {
+      setIsLoadingSites(false);
     }
-
-    const seen = new Set(sheetOptions.map((s) => s.name.toLowerCase()));
-    const manualOptions: EodSiteOption[] = ((manualResult.data as ManualReviewSite[]) || [])
-      .filter((m) => !seen.has(m.site_name.toLowerCase()))
-      .map((m) => ({ name: m.site_name, domain: m.site_domain, status: "manual" as const }));
-
-    setSites(
-      [...sheetOptions, ...manualOptions].sort((a, b) => a.name.localeCompare(b.name))
-    );
-    setIsLoadingSites(false);
   };
 
   const addManualSite = async () => {

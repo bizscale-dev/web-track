@@ -1,13 +1,21 @@
 'use server';
 
+import { revalidateTag } from 'next/cache';
 import { getGoogleAccessToken } from '@/lib/googleAuth';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import type { WebsiteEditsBlock, WebsiteEditsRun, WebsiteEditsTab } from '@/type/websiteEdits';
+
+const DOC_CACHE_TAG = 'website-edits-doc';
 
 // "Website Edits" doc — one tab per client site, each holding free-form edit
 // requests (text + embedded images). Uses the Docs API (not Drive's flat
 // export) specifically because tabs are a Docs-API-only concept.
+//
+// NOTE: the doc's URL itself is NOT exported from here — a 'use server' file
+// may only export async functions (they become Server Action RPC proxies);
+// exporting a plain string constant gets mangled when imported into a client
+// component. It's defined directly in the page component instead.
 const DOCUMENT_ID = '1LoGRk5TxbPtRCZ4BUAtQyqmJdDXwfYQ9jLI_10mhAtU';
-export const WEBSITE_EDITS_DOC_URL = `https://docs.google.com/document/d/${DOCUMENT_ID}/edit?usp=sharing`;
 
 function parseRun(textRun: any): WebsiteEditsRun {
   const style = textRun.textStyle || {};
@@ -98,13 +106,18 @@ export async function getWebsiteEditsTabs(): Promise<WebsiteEditsTab[]> {
     if (!accessToken) return [];
 
     const url = `https://docs.googleapis.com/v1/documents/${DOCUMENT_ID}?includeTabsContent=true`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      // The doc changes throughout the day as edit requests get added —
-      // a few minutes of staleness is a fine trade against fetching the
-      // entire (large) document on every single page load.
-      next: { revalidate: 300 },
-    });
+    const res = await fetchWithTimeout(
+      url,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        // The doc changes throughout the day as edit requests get added —
+        // a few minutes of staleness is a fine trade against fetching the
+        // entire (large) document on every single page load. Tagged so a
+        // successful write (see appendToWebsiteEditsTab) can force-refresh it.
+        next: { revalidate: 300, tags: [DOC_CACHE_TAG] },
+      },
+      15000 // the doc is large (~400KB+), give it more room than the default
+    );
     if (!res.ok) return [];
 
     const data = await res.json();
@@ -112,4 +125,83 @@ export async function getWebsiteEditsTabs(): Promise<WebsiteEditsTab[]> {
   } catch {
     return [];
   }
+}
+
+// Appends a new paragraph to the end of one tab's body — the actual pattern
+// this doc is used with (new dated edit requests tacked on), rather than
+// arbitrary in-place editing of existing text, which the Docs API's
+// index-based addressing makes much riskier to get right from a UI.
+export async function appendToWebsiteEditsTab(
+  tabId: string,
+  text: string
+): Promise<{ success: boolean; error?: string }> {
+  const trimmed = text.trim();
+  if (!trimmed) return { success: false, error: 'Nothing to add.' };
+
+  try {
+    const accessToken = await getGoogleAccessToken();
+    if (!accessToken) return { success: false, error: 'Could not authenticate with Google.' };
+
+    // Fetch fresh (no cache) — we need the CURRENT end index of this tab's
+    // body right now, not a possibly-stale cached one, or the insert could
+    // land in the wrong place or fail outright.
+    const getRes = await fetchWithTimeout(
+      `https://docs.googleapis.com/v1/documents/${DOCUMENT_ID}?includeTabsContent=true`,
+      { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' },
+      15000
+    );
+    if (!getRes.ok) return { success: false, error: 'Could not reach the document.' };
+
+    const doc = await getRes.json();
+    const tab = findTabById(doc.tabs || [], tabId);
+    if (!tab) return { success: false, error: 'That tab no longer exists — refresh and try again.' };
+
+    const content = tab.documentTab?.body?.content || [];
+    const lastElement = content[content.length - 1];
+    if (!lastElement) return { success: false, error: 'Could not locate where to insert text.' };
+
+    // Insert just before the document's mandatory trailing newline, so this
+    // lands as a new paragraph after the existing content rather than inside it.
+    const insertIndex = Math.max(1, lastElement.endIndex - 1);
+
+    const updateRes = await fetchWithTimeout(
+      `https://docs.googleapis.com/v1/documents/${DOCUMENT_ID}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [
+            {
+              insertText: {
+                location: { tabId, index: insertIndex },
+                text: `\n${trimmed}`,
+              },
+            },
+          ],
+        }),
+      },
+      15000
+    );
+
+    if (!updateRes.ok) {
+      const errBody = await updateRes.text().catch(() => '');
+      return { success: false, error: `Google rejected the update (${updateRes.status}). ${errBody.slice(0, 200)}` };
+    }
+
+    revalidateTag(DOC_CACHE_TAG);
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Could not reach Google — try again in a moment.' };
+  }
+}
+
+function findTabById(tabs: any[], tabId: string): any {
+  for (const t of tabs) {
+    if (t.tabProperties?.tabId === tabId) return t;
+    if (t.childTabs?.length) {
+      const found = findTabById(t.childTabs, tabId);
+      if (found) return found;
+    }
+  }
+  return null;
 }

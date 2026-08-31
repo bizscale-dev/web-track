@@ -1,6 +1,7 @@
 'use server';
 
 import { getGoogleAccessToken } from '@/lib/googleAuth';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import type { WebsiteSpeed } from '@/type/websiteSpeed';
 
 // "Website Speed Optimization Tracker" sheet — PageSpeed Insights scores per
@@ -21,7 +22,7 @@ export async function getWebsiteSpeeds(): Promise<WebsiteSpeed[]> {
     if (!accessToken) return [];
 
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(DATA_RANGE)}`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
       // The sheet only changes when someone re-runs a speed check — a minute
       // of staleness is a fine trade for not round-tripping to Google every load.

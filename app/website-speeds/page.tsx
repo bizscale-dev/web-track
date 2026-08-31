@@ -49,12 +49,18 @@ export default function WebsiteSpeedsPage() {
 
   const loadSpeeds = async () => {
     setIsLoading(true);
-    const data = await getWebsiteSpeeds();
-    if (data.length === 0) {
+    setError(null);
+    try {
+      const data = await getWebsiteSpeeds();
+      if (data.length === 0) {
+        setError("Could not load speed data — check sheet connectivity.");
+      }
+      setSpeeds(data);
+    } catch {
       setError("Could not load speed data — check sheet connectivity.");
+    } finally {
+      setIsLoading(false);
     }
-    setSpeeds(data);
-    setIsLoading(false);
   };
 
   const filtered = speeds.filter((s) =>
