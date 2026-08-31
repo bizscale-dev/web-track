@@ -124,7 +124,7 @@ export async function triggerN8nWebhook(payload: {
       customMessage = `Website development and launch are officially completed.`;
       break;
     case 'Initial SEO':
-      customMessage = `The site is now handed over for Initial SEO setup.`;
+      customMessage = payload.customNotes?.trim() || `The site is now handed over for Initial SEO setup.`;
       break;
     default:
       customMessage = `Status changed from ${payload.oldStatus} to ${payload.newStatus}.`;

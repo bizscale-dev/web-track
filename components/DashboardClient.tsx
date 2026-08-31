@@ -3,9 +3,6 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck, Globe, AlertTriangle, FileEdit } from "lucide-react";
-
-const WEBSITE_EDITS_DOC_URL =
-  "https://docs.google.com/document/d/1LoGRk5TxbPtRCZ4BUAtQyqmJdDXwfYQ9jLI_10mhAtU/edit?usp=sharing";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -19,6 +16,8 @@ type DashboardClientProps = {
   initialData: Website[];
   loadError?: string | null;
 };
+
+const DEFAULT_SEO_MESSAGE = "The site is now handed over for Initial SEO setup.";
 
 export default function DashboardClient({
   initialData,
@@ -56,6 +55,7 @@ export default function DashboardClient({
     websiteId: 0,
     nextStatus: "",
     domain: "",
+    message: DEFAULT_SEO_MESSAGE,
     websiteName: "",
     isSaving: false,
     error: "",
@@ -131,6 +131,7 @@ export default function DashboardClient({
         websiteId: websiteId,
         nextStatus: nextStatus,
         domain: currentWebsite.domain || "",
+        message: DEFAULT_SEO_MESSAGE,
         websiteName: currentWebsite.website_name,
         isSaving: false,
         error: "",
@@ -142,7 +143,7 @@ export default function DashboardClient({
   }
 
   async function confirmSeoModal() {
-    const { websiteId, nextStatus, domain } = seoModal;
+    const { websiteId, nextStatus, domain, message } = seoModal;
     const currentWebsite = websites.find((website) => website.id === websiteId);
     if (!currentWebsite) return;
 
@@ -169,7 +170,7 @@ export default function DashboardClient({
     }
 
     setSeoModal((current) => ({ ...current, isOpen: false, isSaving: false }));
-    executeStatusChange(websiteId, nextStatus, undefined, domainChanged ? trimmedDomain : undefined);
+    executeStatusChange(websiteId, nextStatus, message.trim(), domainChanged ? trimmedDomain : undefined);
   }
 
   async function executeStatusChange(websiteId: number, nextStatus: string, customNotes?: string, domainOverride?: string) {
@@ -321,14 +322,12 @@ export default function DashboardClient({
               )}
 
               {(role === "developer" || role === "manager" || role === "admin") && (
-                <a
-                  href={WEBSITE_EDITS_DOC_URL}
-                  target="_blank"
-                  rel="noreferrer"
+                <Link
+                  href="/website-edits"
                   className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-violet-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.18)] transition hover:-translate-y-0.5 hover:bg-violet-700"
                 >
                   <FileEdit className="w-4 h-4" /> Website Edits
-                </a>
+                </Link>
               )}
 
               {role === "admin" || role === "manager" ? (
@@ -497,7 +496,7 @@ export default function DashboardClient({
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-black text-lg text-slate-900">Confirm Domain: {seoModal.websiteName}</h3>
+                <h3 className="font-black text-lg text-slate-900">Confirm Domain &amp; Message: {seoModal.websiteName}</h3>
               </div>
               <button
                 onClick={() => setSeoModal({ ...seoModal, isOpen: false })}
@@ -515,6 +514,7 @@ export default function DashboardClient({
                 </span>
               </p>
 
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Domain</label>
               <input
                 type="text"
                 className="w-full px-4 py-2.5 text-sm text-slate-700 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
@@ -526,6 +526,19 @@ export default function DashboardClient({
               {seoModal.error && (
                 <p className="text-xs font-bold text-rose-600 mt-2">{seoModal.error}</p>
               )}
+
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 mt-4">
+                Message sent to SEO team
+              </label>
+              <textarea
+                className="w-full h-28 p-4 text-sm text-slate-700 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none shadow-inner"
+                value={seoModal.message}
+                onChange={(e) => setSeoModal({ ...seoModal, message: e.target.value })}
+                placeholder={DEFAULT_SEO_MESSAGE}
+              />
+              <p className="text-xs text-slate-400 mt-1.5">
+                Business name, URL, who changed it, and timestamp are added automatically — this is just the message body.
+              </p>
 
               <div className="flex justify-end gap-3 mt-6">
                 <button
