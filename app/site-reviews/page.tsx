@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
@@ -16,7 +16,28 @@ import {
   CheckCircle2,
   Globe,
   PlusCircle,
+  ChevronDown,
+  ChevronRight,
+  Gauge,
 } from "lucide-react";
+
+// A site only counts as "reviewed" once every item here is checked, and it
+// stays reviewed for a rolling 15 days from whenever the last item was
+// checked — then it's automatically due again.
+const REVIEW_CHECKLIST_ITEMS = [
+  "Responsiveness",
+  "Forms Testing",
+  "Broken Links",
+  "Gallery Light Box",
+  "New Reviews",
+  "Web Archive Snapshot",
+  "WordPress Version Update",
+  "Plugins Update",
+  "Theme Update",
+];
+
+const REVIEW_VALID_DAYS = 15;
+const DAY_MS = 1000 * 60 * 60 * 24;
 
 function normalizeSiteLink(link: string): string {
   const trimmed = link.trim().replace(/\/+$/, "");
@@ -24,26 +45,61 @@ function normalizeSiteLink(link: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-function getPeriodKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const half = date.getDate() <= 15 ? "1" : "2";
-  return `${year}-${month}-${half}`;
-}
-
-function getPeriodLabel(date: Date): string {
-  const month = date.toLocaleString("en-US", { month: "long" });
-  const year = date.getFullYear();
-  const half = date.getDate() <= 15 ? "1st – 15th" : "16th – end";
-  return `${month} ${half}, ${year}`;
-}
-
 function daysAgo(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const days = Math.floor(diffMs / DAY_MS);
   if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
   return `${days} days ago`;
+}
+
+type SiteReviewState = {
+  itemRows: Map<string, SiteReview>;
+  checkedCount: number;
+  completedAt: string | null; // when the set last became fully complete
+  daysSinceCompleted: number | null;
+  isExpired: boolean; // was complete, but the 15-day window has passed
+  isFullyReviewed: boolean; // complete AND not expired
+  daysUntilDue: number | null;
+  daysOverdue: number | null;
+};
+
+function computeSiteReviewState(rows: SiteReview[]): SiteReviewState {
+  const itemRows = new Map<string, SiteReview>();
+  for (const row of rows) {
+    if (REVIEW_CHECKLIST_ITEMS.includes(row.checklist_item)) {
+      itemRows.set(row.checklist_item, row);
+    }
+  }
+
+  const checkedCount = itemRows.size;
+  const isComplete = checkedCount === REVIEW_CHECKLIST_ITEMS.length;
+
+  let completedAt: string | null = null;
+  if (isComplete) {
+    completedAt = [...itemRows.values()]
+      .map((r) => r.checked_at)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+  }
+
+  const daysSinceCompleted = completedAt
+    ? Math.floor((Date.now() - new Date(completedAt).getTime()) / DAY_MS)
+    : null;
+  const isExpired = daysSinceCompleted !== null && daysSinceCompleted >= REVIEW_VALID_DAYS;
+  const isFullyReviewed = isComplete && !isExpired;
+  const daysUntilDue = isFullyReviewed ? REVIEW_VALID_DAYS - (daysSinceCompleted ?? 0) : null;
+  const daysOverdue = isExpired ? (daysSinceCompleted ?? 0) - REVIEW_VALID_DAYS : null;
+
+  return {
+    itemRows,
+    checkedCount,
+    completedAt,
+    daysSinceCompleted,
+    isExpired,
+    isFullyReviewed,
+    daysUntilDue,
+    daysOverdue,
+  };
 }
 
 export default function SiteReviewsPage() {
@@ -54,12 +110,13 @@ export default function SiteReviewsPage() {
   const [sitesError, setSitesError] = useState<string | null>(null);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
 
-  const [latestBySite, setLatestBySite] = useState<Record<string, SiteReview>>({});
-  const [currentPeriodSites, setCurrentPeriodSites] = useState<Set<string>>(new Set());
+  const [reviewStateBySite, setReviewStateBySite] = useState<Record<string, SiteReviewState>>({});
+  const [lastActivityBySite, setLastActivityBySite] = useState<Record<string, SiteReview>>({});
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
 
   const [search, setSearch] = useState("");
-  const [togglingSite, setTogglingSite] = useState<string | null>(null);
+  const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set());
+  const [togglingItem, setTogglingItem] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
 
   const [isAddingManualSite, setIsAddingManualSite] = useState(false);
@@ -67,9 +124,6 @@ export default function SiteReviewsPage() {
   const [manualSiteLink, setManualSiteLink] = useState("");
   const [isSavingManualSite, setIsSavingManualSite] = useState(false);
   const [manualSiteError, setManualSiteError] = useState<string | null>(null);
-
-  const periodKey = useMemo(() => getPeriodKey(new Date()), []);
-  const periodLabel = useMemo(() => getPeriodLabel(new Date()), []);
 
   useEffect(() => {
     if (canView) {
@@ -131,30 +185,56 @@ export default function SiteReviewsPage() {
 
   const loadReviews = async () => {
     setIsLoadingReviews(true);
-    const { data } = await supabase
-      .from("site_reviews")
-      .select("*")
-      .order("checked_at", { ascending: false });
+    const { data } = await supabase.from("site_reviews").select("*");
 
-    const latest: Record<string, SiteReview> = {};
-    const currentPeriod = new Set<string>();
-    const period = getPeriodKey(new Date());
-
+    const bySite: Record<string, SiteReview[]> = {};
     ((data as SiteReview[]) || []).forEach((row) => {
       const key = row.site_name.toLowerCase();
-      if (!latest[key]) latest[key] = row; // rows arrive newest-first, so the first hit per site is the latest
-      if (row.review_period === period) currentPeriod.add(key);
+      if (!bySite[key]) bySite[key] = [];
+      bySite[key].push(row);
     });
 
-    setLatestBySite(latest);
-    setCurrentPeriodSites(currentPeriod);
+    const states: Record<string, SiteReviewState> = {};
+    const lastActivity: Record<string, SiteReview> = {};
+    for (const [key, rows] of Object.entries(bySite)) {
+      states[key] = computeSiteReviewState(rows);
+      const relevant = rows.filter((r) => REVIEW_CHECKLIST_ITEMS.includes(r.checklist_item));
+      if (relevant.length > 0) {
+        lastActivity[key] = relevant.sort(
+          (a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime()
+        )[0];
+      }
+    }
+
+    setReviewStateBySite(states);
+    setLastActivityBySite(lastActivity);
     setIsLoadingReviews(false);
   };
 
-  const toggleReview = async (site: EodSiteOption) => {
+  const toggleExpanded = (key: string) => {
+    setExpandedSites((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const isItemChecked = (site: EodSiteOption, item: string): boolean => {
     const key = site.name.toLowerCase();
-    const isChecked = currentPeriodSites.has(key);
-    setTogglingSite(key);
+    const state = reviewStateBySite[key];
+    if (!state) return false;
+    // Once the set has been complete for 15+ days, treat everything as reset
+    // for display — checking any item again starts a fresh cycle.
+    if (state.isExpired) return false;
+    return state.itemRows.has(item);
+  };
+
+  const toggleChecklistItem = async (site: EodSiteOption, item: string) => {
+    const key = site.name.toLowerCase();
+    const isChecked = isItemChecked(site, item);
+    const togglingKey = `${key}|${item}`;
+    setTogglingItem(togglingKey);
     setToggleError(null);
 
     const { error } = isChecked
@@ -162,41 +242,44 @@ export default function SiteReviewsPage() {
           .from("site_reviews")
           .delete()
           .eq("site_name", site.name)
-          .eq("review_period", periodKey)
+          .eq("checklist_item", item)
       : await supabase.from("site_reviews").upsert(
           {
             site_name: site.name,
             site_domain: site.domain,
-            review_period: periodKey,
+            checklist_item: item,
             checked_by_name: name || "Unknown Operator",
             checked_by_email: email || "",
             checked_at: new Date().toISOString(),
           },
-          { onConflict: "site_name,review_period" }
+          { onConflict: "site_name,checklist_item" }
         );
 
     if (error) {
-      setToggleError(`Couldn't save review for "${site.name}": ${error.message}`);
-      setTogglingSite(null);
+      setToggleError(`Couldn't save "${item}" for "${site.name}": ${error.message}`);
+      setTogglingItem(null);
       return;
     }
 
     await loadReviews();
-    setTogglingSite(null);
+    setTogglingItem(null);
   };
+
+  const getState = (site: EodSiteOption) => reviewStateBySite[site.name.toLowerCase()];
+  const isSiteFullyReviewed = (site: EodSiteOption) => getState(site)?.isFullyReviewed ?? false;
 
   const filteredSites = sites.filter((s) =>
     s.name.toLowerCase().includes(search.trim().toLowerCase())
   );
 
   const sortedSites = [...filteredSites].sort((a, b) => {
-    const aChecked = currentPeriodSites.has(a.name.toLowerCase());
-    const bChecked = currentPeriodSites.has(b.name.toLowerCase());
+    const aChecked = isSiteFullyReviewed(a);
+    const bChecked = isSiteFullyReviewed(b);
     if (aChecked !== bChecked) return aChecked ? 1 : -1;
     return a.name.localeCompare(b.name);
   });
 
-  const reviewedCount = sites.filter((s) => currentPeriodSites.has(s.name.toLowerCase())).length;
+  const reviewedCount = sites.filter(isSiteFullyReviewed).length;
   const totalCount = sites.length;
   const progressPct = totalCount > 0 ? Math.round((reviewedCount / totalCount) * 100) : 0;
 
@@ -229,14 +312,23 @@ export default function SiteReviewsPage() {
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
       </Link>
 
-      <div className="flex items-center gap-3 mb-2">
-        <div className="p-3 bg-indigo-600 text-white rounded-xl shadow-sm">
-          <ShieldCheck className="w-6 h-6" />
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-indigo-600 text-white rounded-xl shadow-sm">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Site Reviews</h1>
+            <p className="text-gray-500 text-sm mt-1">Reviewed every {REVIEW_VALID_DAYS} days</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Site Reviews</h1>
-          <p className="text-gray-500 text-sm mt-1">Bi-monthly health check · {periodLabel}</p>
-        </div>
+
+        <Link
+          href="/website-speeds"
+          className="inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-emerald-600 text-white text-sm font-semibold shadow-[0_10px_30px_rgba(5,150,105,0.18)] transition hover:-translate-y-0.5 hover:bg-emerald-700 shrink-0"
+        >
+          <Gauge className="w-4 h-4" /> Website Speeds
+        </Link>
       </div>
 
       {toggleError && (
@@ -249,7 +341,7 @@ export default function SiteReviewsPage() {
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mb-6 mt-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-gray-700">
-              {reviewedCount} of {totalCount} sites reviewed this period
+              {reviewedCount} of {totalCount} sites up to date
             </span>
             <span className="text-sm font-bold text-indigo-600">{progressPct}%</span>
           </div>
@@ -343,69 +435,130 @@ export default function SiteReviewsPage() {
         <div className="space-y-2.5">
           {sortedSites.map((site) => {
             const key = site.name.toLowerCase();
-            const isChecked = currentPeriodSites.has(key);
-            const lastReview = latestBySite[key];
-            const isToggling = togglingSite === key;
+            const state = getState(site);
+            const isFullyReviewed = state?.isFullyReviewed ?? false;
+            const isOverdue = state?.isExpired ?? false;
+            const checkedCount = isOverdue
+              ? 0
+              : REVIEW_CHECKLIST_ITEMS.filter((item) => isItemChecked(site, item)).length;
+            const lastActivity = lastActivityBySite[key];
+            const isOpen = expandedSites.has(key);
 
             return (
               <div
                 key={site.name}
-                className={`flex items-center gap-4 p-4 rounded-2xl border shadow-sm transition-all ${
-                  isChecked
+                className={`rounded-2xl border shadow-sm transition-all overflow-hidden ${
+                  isFullyReviewed
                     ? "bg-emerald-50/50 border-emerald-200"
+                    : isOverdue
+                    ? "bg-rose-50/40 border-rose-200"
                     : "bg-white border-gray-200 hover:border-blue-200"
                 }`}
               >
                 <button
-                  onClick={() => toggleReview(site)}
-                  disabled={isToggling}
-                  className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${
-                    isChecked
-                      ? "bg-emerald-500 border-emerald-500"
-                      : "border-gray-300 hover:border-blue-400 bg-white"
-                  } disabled:opacity-50`}
-                  title={isChecked ? "Mark as not reviewed" : "Mark as reviewed"}
+                  type="button"
+                  onClick={() => toggleExpanded(key)}
+                  className="w-full flex items-center gap-4 p-4 text-left"
                 >
-                  {isToggling ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
-                  ) : isChecked ? (
-                    <CheckCircle2 className="w-4 h-4 text-white" />
-                  ) : null}
+                  <div
+                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${
+                      isFullyReviewed ? "bg-emerald-500 border-emerald-500" : "border-gray-300"
+                    }`}
+                  >
+                    {isFullyReviewed && <CheckCircle2 className="w-4 h-4 text-white" />}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5 flex-wrap">
+                      {site.name}
+                      {site.status === "manual" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
+                          Manual
+                        </span>
+                      )}
+                      {isFullyReviewed ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                          Due in {state!.daysUntilDue}d
+                        </span>
+                      ) : isOverdue ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                          Review Overdue
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                          {checkedCount}/{REVIEW_CHECKLIST_ITEMS.length} checks
+                        </span>
+                      )}
+                    </p>
+                    {site.domain && (
+                      <a
+                        href={site.domain}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs text-gray-400 hover:text-blue-600 flex items-center gap-1 mt-0.5 truncate w-fit"
+                      >
+                        <Globe className="w-3 h-3 shrink-0" /> {site.domain}
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    {lastActivity ? (
+                      <>
+                        <p className="text-xs font-bold text-gray-700">{lastActivity.checked_by_name}</p>
+                        <p className="text-[11px] text-gray-400">{daysAgo(lastActivity.checked_at)}</p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] font-medium text-amber-600 uppercase tracking-wider">
+                        Never reviewed
+                      </p>
+                    )}
+                  </div>
+
+                  {isOpen ? (
+                    <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                  )}
                 </button>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                    {site.name}
-                    {site.status === "manual" && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
-                        Manual
-                      </span>
+                {isOpen && (
+                  <div className="border-t border-gray-100 divide-y divide-gray-100">
+                    {isOverdue && (
+                      <p className="px-4 py-2.5 text-xs text-rose-700 bg-rose-50/60">
+                        This review expired {state!.daysOverdue === 0 ? "today" : `${state!.daysOverdue} day${state!.daysOverdue === 1 ? "" : "s"} ago`} — check items below to start a new cycle.
+                      </p>
                     )}
-                  </p>
-                  {site.domain && (
-                    <a
-                      href={site.domain}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-gray-400 hover:text-blue-600 flex items-center gap-1 mt-0.5 truncate"
-                    >
-                      <Globe className="w-3 h-3 shrink-0" /> {site.domain}
-                    </a>
-                  )}
-                </div>
+                    {REVIEW_CHECKLIST_ITEMS.map((item) => {
+                      const itemChecked = isItemChecked(site, item);
+                      const isToggling = togglingItem === `${key}|${item}`;
 
-                <div className="text-right shrink-0">
-                  {lastReview ? (
-                    <>
-                      <p className="text-xs font-bold text-gray-700">{lastReview.checked_by_name}</p>
-                      <p className="text-[11px] text-gray-400">{daysAgo(lastReview.checked_at)}</p>
-                    </>
-                  ) : (
-                    <p className="text-[11px] font-medium text-amber-600 uppercase tracking-wider">
-                      Never reviewed
-                    </p>
-                  )}
-                </div>
+                      return (
+                        <label
+                          key={item}
+                          className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={itemChecked}
+                            disabled={isToggling}
+                            onChange={() => toggleChecklistItem(site, item)}
+                            className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
+                          />
+                          <span
+                            className={`text-sm flex-1 ${
+                              itemChecked ? "text-gray-500 line-through" : "text-gray-700 font-medium"
+                            }`}
+                          >
+                            {item}
+                          </span>
+                          {isToggling && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}

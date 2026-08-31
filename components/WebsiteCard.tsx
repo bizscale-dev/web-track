@@ -166,9 +166,18 @@ export default function WebsiteCard({
             </span>
           </div>
 
-          <p className="mt-2 truncate text-sm text-slate-500">
-            {website.domain}
-          </p>
+          {website.domain ? (
+            <a
+              href={website.domain}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 block truncate text-sm text-slate-500 hover:text-blue-600 hover:underline w-fit"
+            >
+              {website.domain}
+            </a>
+          ) : (
+            <p className="mt-2 truncate text-sm text-slate-500">Unassigned</p>
+          )}
 
           <div className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-3">
             <Meta label="Developer" value={website.developer} />

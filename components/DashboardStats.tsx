@@ -5,11 +5,17 @@ import type { ReactNode } from "react";
 
 type DashboardStatsProps = {
   websites: Website[];
+  activeStatus?: string | null;
+  onStatusClick?: (status: string) => void;
 };
 
-export default function DashboardStats({ websites }: DashboardStatsProps) {
-  const completed = websites.filter(
-    (website) => website.status === "Completed"
+// A site counts as "Completed" once it reaches the Completed stage or moves
+// beyond it (e.g. Initial SEO) — not just while status is literally "Completed".
+const COMPLETED_OR_LATER = ["Completed", "Initial SEO"];
+
+export default function DashboardStats({ websites, activeStatus, onStatusClick }: DashboardStatsProps) {
+  const completed = websites.filter((website) =>
+    COMPLETED_OR_LATER.includes(website.status || "")
   ).length;
   const inProgress = websites.length - completed;
   const highPriority = websites.filter(
@@ -50,22 +56,30 @@ export default function DashboardStats({ websites }: DashboardStatsProps) {
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {WEBSITE_STATUSES.map((status, index) => {
-            const count = websites.filter(
-              (website) => website.status === status
-            ).length;
+            const count =
+              status === "Completed"
+                ? completed
+                : websites.filter((website) => website.status === status).length;
             const palette = STATUS_PALETTES[index % STATUS_PALETTES.length];
+            const isActive = activeStatus === status;
 
             return (
-              <div
+              <button
                 key={status}
-                className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3"
+                type="button"
+                onClick={() => onStatusClick?.(status)}
+                className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all ${
+                  isActive
+                    ? "border-blue-400 bg-blue-50 shadow-[0_4px_20px_rgba(37,99,235,0.12)]"
+                    : "border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-slate-100/80"
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${palette}`} />
-                  <span className="text-sm font-medium text-slate-600">{status}</span>
+                  <span className={`text-sm font-medium ${isActive ? "text-blue-900" : "text-slate-600"}`}>{status}</span>
                 </div>
-                <span className="text-lg font-bold text-slate-950">{count}</span>
-              </div>
+                <span className={`text-lg font-bold ${isActive ? "text-blue-700" : "text-slate-950"}`}>{count}</span>
+              </button>
             );
           })}
         </div>

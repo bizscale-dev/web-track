@@ -2,7 +2,10 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck, Globe, AlertTriangle } from "lucide-react";
+import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck, Globe, AlertTriangle, FileEdit } from "lucide-react";
+
+const WEBSITE_EDITS_DOC_URL =
+  "https://docs.google.com/document/d/1LoGRk5TxbPtRCZ4BUAtQyqmJdDXwfYQ9jLI_10mhAtU/edit?usp=sharing";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -38,6 +41,7 @@ export default function DashboardClient({
   const [deletingWebsiteIds, setDeletingWebsiteIds] = useState<number[]>([]);
   const [search, setSearch] = useState("");
   const [viewFilter, setViewFilter] = useState<"All" | "Not Started" | "In Progress" | "Completed">("In Progress");
+  const [preciseStatusFilter, setPreciseStatusFilter] = useState<{ key: string; statuses: string[] } | null>(null);
 
   const [demandModal, setDemandModal] = useState({
     isOpen: false,
@@ -62,7 +66,9 @@ export default function DashboardClient({
 
     return websites.filter((website) => {
       let matchesStatus = true;
-      if (viewFilter === "Not Started") {
+      if (preciseStatusFilter) {
+        matchesStatus = preciseStatusFilter.statuses.includes(website.status || "");
+      } else if (viewFilter === "Not Started") {
         matchesStatus = website.status === "Pending";
       } else if (viewFilter === "In Progress") {
         matchesStatus = [
@@ -93,7 +99,14 @@ export default function DashboardClient({
 
       return matchesStatus && matchesSearch;
     });
-  }, [search, viewFilter, websites]);
+  }, [search, viewFilter, preciseStatusFilter, websites]);
+
+  function handleStatusTileClick(status: string) {
+    // "Completed" rolls up any site that's reached that stage or moved beyond
+    // it (e.g. Initial SEO) — matches the count shown on the tile itself.
+    const statuses = status === "Completed" ? ["Completed", "Initial SEO"] : [status];
+    setPreciseStatusFilter((current) => (current?.key === status ? null : { key: status, statuses }));
+  }
 
   async function handleStatusChange(websiteId: number, nextStatus: string) {
     const currentWebsite = websites.find((website) => website.id === websiteId);
@@ -307,6 +320,17 @@ export default function DashboardClient({
                 </Link>
               )}
 
+              {(role === "developer" || role === "manager" || role === "admin") && (
+                <a
+                  href={WEBSITE_EDITS_DOC_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-violet-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.18)] transition hover:-translate-y-0.5 hover:bg-violet-700"
+                >
+                  <FileEdit className="w-4 h-4" /> Website Edits
+                </a>
+              )}
+
               {role === "admin" || role === "manager" ? (
                 <Link href="/websites/new" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700">
                   + Add Website
@@ -352,7 +376,11 @@ export default function DashboardClient({
         </div>
       ) : null}
 
-      <DashboardStats websites={websites} />
+      <DashboardStats
+        websites={websites}
+        activeStatus={preciseStatusFilter?.key ?? null}
+        onStatusClick={handleStatusTileClick}
+      />
 
       <div className="mt-8 space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
@@ -361,9 +389,12 @@ export default function DashboardClient({
               <button
                 key={filter}
                 type="button"
-                onClick={() => setViewFilter(filter)}
+                onClick={() => {
+                  setViewFilter(filter);
+                  setPreciseStatusFilter(null);
+                }}
                 className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap ${
-                  viewFilter === filter
+                  !preciseStatusFilter && viewFilter === filter
                     ? "bg-white text-slate-950 shadow-[0_4px_20px_rgba(0,0,0,0.08)]"
                     : "text-slate-600 hover:text-slate-900 hover:bg-white/40"
                 }`}
@@ -373,10 +404,21 @@ export default function DashboardClient({
             ))}
           </div>
 
-          <p className="text-sm text-slate-500 whitespace-nowrap ml-4">
-            Showing <span className="font-semibold text-slate-900">{filteredWebsites.length}</span>{" "}
-            of <span className="font-semibold text-slate-900">{websites.length}</span> websites
-          </p>
+          <div className="flex items-center gap-3 ml-4">
+            {preciseStatusFilter && (
+              <button
+                type="button"
+                onClick={() => setPreciseStatusFilter(null)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors whitespace-nowrap"
+              >
+                {preciseStatusFilter.key} <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <p className="text-sm text-slate-500 whitespace-nowrap">
+              Showing <span className="font-semibold text-slate-900">{filteredWebsites.length}</span>{" "}
+              of <span className="font-semibold text-slate-900">{websites.length}</span> websites
+            </p>
+          </div>
         </div>
 
         {filteredWebsites.length === 0 ? (
