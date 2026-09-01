@@ -116,7 +116,8 @@ export async function getWebsiteEditsTabs(): Promise<WebsiteEditsTab[]> {
         // successful write (see appendToWebsiteEditsTab) can force-refresh it.
         next: { revalidate: 300, tags: [DOC_CACHE_TAG] },
       },
-      15000 // the doc is large (~400KB+), give it more room than the default
+      20000 // the doc is large (~400KB+) — longer than the default, but still
+      // well under maxDuration above so our own timeout wins that race.
     );
     if (!res.ok) return [];
 
@@ -148,7 +149,8 @@ export async function appendToWebsiteEditsTab(
     const getRes = await fetchWithTimeout(
       `https://docs.googleapis.com/v1/documents/${DOCUMENT_ID}?includeTabsContent=true`,
       { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' },
-      15000
+      12000 // this function does two sequential fetches — keep each comfortably
+      // under half of maxDuration so their combined worst case doesn't approach it
     );
     if (!getRes.ok) return { success: false, error: 'Could not reach the document.' };
 
@@ -180,7 +182,7 @@ export async function appendToWebsiteEditsTab(
           ],
         }),
       },
-      15000
+      12000
     );
 
     if (!updateRes.ok) {
