@@ -9,9 +9,9 @@ import { WEBSITE_STATUSES } from "@/lib/statuses";
 import { triggerN8nWebhook } from "@/app/actions";
 import SecureStatusDropdown from '@/components/SecureStatusDropdown';
 import { useAuth } from "@/components/AuthProvider";
-import { 
-  ArrowLeft, ExternalLink, Key, LayoutTemplate, Lock, User, 
-  Globe, Plus, Trash2, Edit2, Copy, Check, Save, FileText, ListPlus, Users 
+import {
+  ArrowLeft, ExternalLink, Key, LayoutTemplate, Lock, User,
+  Globe, Plus, Trash2, Edit2, Copy, Check, Save, FileText, ListPlus, Users, X
 } from "lucide-react";
 
 // Helper to safely parse the JSON credentials column
@@ -36,9 +36,11 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
   const [isEditingCreds, setIsEditingCreds] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isEditingTeam, setIsEditingTeam] = useState(false);
+  const [isEditingDomain, setIsEditingDomain] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  
+
   // Form States
+  const [domainForm, setDomainForm] = useState(initialWebsite.domain || "");
   const [credsForm, setCredsForm] = useState({
     loginUrl: initialCreds.loginUrl || "",
     username: initialCreds.username || "",
@@ -79,6 +81,60 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // --- WEBSITE URL ---
+  // The Pages Tracker (website_tasks) stores each page's full URL as an
+  // independent string — it doesn't derive from websites.domain — so
+  // changing the domain here also has to rewrite every task's URL, or the
+  // Dashboard/Pages Tracker would keep pointing at the old domain forever.
+  const handleSaveDomain = async () => {
+    const trimmed = domainForm.trim();
+    if (!trimmed) return;
+
+    const normalized = (/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`).replace(/\/+$/, "");
+    const oldDomain = (website.domain || "").replace(/\/+$/, "");
+
+    const { data, error } = await supabase
+      .from("websites")
+      .update({ domain: normalized })
+      .eq("id", website.id)
+      .select()
+      .single();
+
+    if (error) { alert("Error saving URL: " + error.message); return; }
+
+    setWebsite(data);
+    setIsEditingDomain(false);
+    setDomainForm(normalized);
+
+    if (!oldDomain || oldDomain === normalized) return;
+
+    const affectedTasks = tasks.filter((t: any) => t.url && t.url.startsWith(oldDomain));
+    if (affectedTasks.length === 0) return;
+
+    const results = await Promise.all(
+      affectedTasks.map((t: any) =>
+        supabase
+          .from("website_tasks")
+          .update({ url: normalized + t.url.slice(oldDomain.length) })
+          .eq("id", t.id)
+          .select()
+          .single()
+      )
+    );
+
+    const failed = results.filter((r) => r.error);
+    if (failed.length > 0) {
+      alert(`Site URL updated, but ${failed.length} Pages Tracker link(s) failed to update — you may need to fix those manually.`);
+    }
+
+    setTasks((current: any[]) =>
+      current.map((t: any) => {
+        const match = results.find((r) => r.data && r.data.id === t.id);
+        return match?.data ? match.data : t;
+      })
+    );
   };
 
   // --- CREDENTIALS ---
@@ -223,6 +279,45 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
           <a href={displayDomain} target="_blank" rel="noreferrer" className="inline-flex items-center px-4 py-2 bg-white/90 border border-gray-200 rounded-lg text-sm font-medium hover:bg-white transition-all shadow-sm">
             Visit Site <ExternalLink className="w-4 h-4 ml-2" />
           </a>
+        </div>
+
+        <div className="flex items-center gap-2 mt-2 text-sm">
+          <Globe className="w-4 h-4 text-gray-400 shrink-0" />
+          {isEditingDomain ? (
+            <>
+              <input
+                type="text"
+                value={domainForm}
+                onChange={(e) => setDomainForm(e.target.value)}
+                placeholder="https://example.com"
+                autoFocus
+                className="flex-1 max-w-md px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button onClick={handleSaveDomain} title="Save" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md">
+                <Save className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => { setIsEditingDomain(false); setDomainForm(website.domain || ""); }}
+                title="Cancel"
+                className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-md"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-gray-500 truncate">{website.domain || "No URL set"}</span>
+              {isCommand && (
+                <button
+                  onClick={() => { setDomainForm(website.domain || ""); setIsEditingDomain(true); }}
+                  title="Edit website URL"
+                  className="p-1 text-gray-300 hover:text-blue-600"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
 
