@@ -1,6 +1,10 @@
 'use server';
 
-import { revalidateTag } from 'next/cache';
+// NOTE: this Next.js version's revalidateTag now requires a second `profile`
+// argument (stale-while-revalidate semantics) — updateTag is the correct fit
+// here instead: Server-Action-only, immediate read-your-own-writes freshness,
+// which is exactly what "I just wrote an entry, show it now" needs.
+import { updateTag } from 'next/cache';
 import { getGoogleAccessToken } from '@/lib/googleAuth';
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import type { WebsiteEditsBlock, WebsiteEditsRun, WebsiteEditsTab } from '@/type/websiteEdits';
@@ -190,7 +194,7 @@ export async function appendToWebsiteEditsTab(
       return { success: false, error: `Google rejected the update (${updateRes.status}). ${errBody.slice(0, 200)}` };
     }
 
-    revalidateTag(DOC_CACHE_TAG);
+    updateTag(DOC_CACHE_TAG);
     return { success: true };
   } catch {
     return { success: false, error: 'Could not reach Google — try again in a moment.' };
