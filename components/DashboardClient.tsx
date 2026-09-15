@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck, Globe, AlertTriangle, FileEdit } from "lucide-react";
+import { Search, Sparkles, Lock, Settings, User as UserIcon, X, FileText, ShieldCheck, Globe, AlertTriangle, FileEdit, ClipboardCheck } from "lucide-react";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -25,8 +25,26 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const router = useRouter();
   
-  const { role, name, avatar } = useAuth(); 
+  const { role, name, email, avatar } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
+  const [hasTaskNotification, setHasTaskNotification] = useState(false);
+
+  useEffect(() => {
+    if (!email || role === "user" || !role) return;
+
+    (async () => {
+      const query = supabase
+        .from("assigned_tasks")
+        .select("id", { count: "exact", head: true });
+
+      const { count } =
+        role === "admin"
+          ? await query.eq("assigned_by_email", email).eq("status", "completed").eq("admin_seen", false)
+          : await query.eq("assigned_to_email", email).eq("assignee_seen", false);
+
+      setHasTaskNotification((count || 0) > 0);
+    })();
+  }, [role, email]);
 
   const [websites, setWebsites] = useState<Website[]>(initialData || []);
 
@@ -315,6 +333,15 @@ export default function DashboardClient({
             )}
 
             <div className="flex w-full sm:w-auto gap-3">
+              {role !== "user" && !!role && (
+                <Link href="/tasks" className="relative inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-sky-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(2,132,199,0.18)] transition hover:-translate-y-0.5 hover:bg-sky-700">
+                  <ClipboardCheck className="w-4 h-4" /> Tasks
+                  {hasTaskNotification && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-white rounded-full" />
+                  )}
+                </Link>
+              )}
+
               {(role === "developer" || role === "manager" || role === "admin") && (
                 <Link href="/site-reviews" className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(79,70,229,0.18)] transition hover:-translate-y-0.5 hover:bg-indigo-700">
                   <ShieldCheck className="w-4 h-4" /> Site Reviews

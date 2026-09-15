@@ -28,6 +28,8 @@ const DEFAULT_TASK_DEFS: { id: string; text: string; group: TaskGroup }[] = [
   { id: 't18', text: 'Original Stats', group: 'after' },
   { id: 't19', text: 'Wordfence Config', group: 'after' },
   { id: 't20', text: 'Login URL Change', group: 'after' },
+  { id: 't21', text: 'Blog Page', group: 'after' },
+  { id: 't22', text: 'Hello World Blog Removal', group: 'after' },
 ];
 
 const defaultTasks: Task[] = DEFAULT_TASK_DEFS.map(({ group, ...t }) => ({ ...t, completions: [] }));

@@ -7,6 +7,7 @@ import { WEBSITE_STATUSES } from "@/lib/statuses";
 import type { Website } from "@/type/website";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./AuthProvider";
+import { calculateBusinessDuration, formatBusinessDuration } from "@/lib/businessTime";
 
 type WebsiteCardProps = {
   website: Website;
@@ -88,51 +89,8 @@ export default function WebsiteCard({
         return;
       }
 
-      // --- SHIFT-BASED PRECISION ENGINE (3 PM - 12 AM) ---
-      let businessMs = 0;
-      let current = new Date(start);
-
-      while (current < end) {
-        const nextHour = new Date(current);
-        nextHour.setHours(current.getHours() + 1, 0, 0, 0);
-        const stepEnd = nextHour < end ? nextHour : end;
-
-        const day = current.getDay();
-        const currentHour = current.getHours(); // Returns 0-23
-        
-        const yyyy = current.getFullYear();
-        const mm = String(current.getMonth() + 1).padStart(2, '0');
-        const dd = String(current.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-        
-        // 1. Exclude Weekends (0, 6)
-        // 2. Exclude Global Holidays
-        // 3. Exclude Off-Hours (Only count if hour is 15:00 [3 PM] or later)
-        if (day !== 0 && day !== 6 && !holidays.has(dateStr) && currentHour >= 15) {
-          businessMs += stepEnd.getTime() - current.getTime();
-        }
-
-        current = stepEnd;
-      }
-
-      // Redefine 1 Day = 9 Hours (9 * 60 * 60 * 1000)
-      const NINE_HOURS_MS = 9 * 60 * 60 * 1000;
-      const ONE_HOUR_MS = 60 * 60 * 1000;
-      const ONE_MINUTE_MS = 60 * 1000;
-
-      const days = Math.floor(businessMs / NINE_HOURS_MS);
-      const remainingMs = businessMs % NINE_HOURS_MS;
-      
-      const hours = Math.floor(remainingMs / ONE_HOUR_MS);
-      const minutes = Math.floor((remainingMs % ONE_HOUR_MS) / ONE_MINUTE_MS);
-      
-      if (days > 0) {
-        setTimeInStage(`${days}d ${hours}h`);
-      } else if (hours > 0) {
-        setTimeInStage(`${hours}h ${minutes}m`);
-      } else {
-        setTimeInStage(`${minutes}m`);
-      }
+      const duration = calculateBusinessDuration(start, end, holidays);
+      setTimeInStage(formatBusinessDuration(duration));
     };
 
     fetchTimeInStage();
