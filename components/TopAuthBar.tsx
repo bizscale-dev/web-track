@@ -1,11 +1,11 @@
 "use client";
 
 import { useAuth } from "./AuthProvider";
-import { Shield, ShieldAlert, ShieldCheck, LogOut, LayoutDashboard, Lock, Briefcase, LifeBuoy, ClipboardList, ListChecks } from "lucide-react";
+import { Shield, ShieldAlert, ShieldCheck, Lock, Briefcase } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import NotificationBell from "@/components/NotificationBell"; // Make sure this path matches your structure!
+import NavDrawer from "@/components/NavDrawer";
 
 export default function TopAuthBar() {
   const { role } = useAuth();
@@ -13,19 +13,6 @@ export default function TopAuthBar() {
 
   // THE INTERCEPTOR: Hide the top bar entirely on the login page
   if (pathname === '/') return null;
-
-  const handleLogout = async () => {
-    // scope: 'local' clears the session on this device only, without waiting on
-    // a network call to Supabase's Auth API — if that service is slow or down,
-    // "Drop Access" must still work instantly rather than hang forever.
-    try {
-      await supabase.auth.signOut({ scope: "local" });
-    } catch {
-      // Even if this throws (e.g. offline), fall through and redirect anyway —
-      // the whole point of local scope is to not depend on network health.
-    }
-    window.location.href = "/"; // Force a hard reset of the application state
-  };
 
   return (
     <div className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] px-4 sm:px-8 py-3 flex items-center justify-between transition-all duration-500">
@@ -67,44 +54,11 @@ export default function TopAuthBar() {
           </Link>
         ) : (
           <div className="flex items-center gap-2 sm:gap-3">
-            
-            {/* NEW: Independent Notification Bell */}
+            {/* Independent Notification Bell */}
             <NotificationBell />
 
-            {/* Support & Admin: Global Requirements Board */}
-            {(role === "support" || role === "admin") && pathname !== "/requirements" && (
-              <Link href="/requirements" className="hidden sm:flex items-center gap-2 text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl border border-purple-200 transition-all shadow-sm">
-                <LifeBuoy className="w-4 h-4" /> Requirements Board
-              </Link>
-            )}
-
-            {/* UPGRADED: Allows both Admins and Managers to see the Command Center link */}
-            {pathname !== "/admin" && pathname !== "/admin/timelines" && (role === "admin" || role === "manager") && (
-              <Link href="/admin" className="hidden sm:flex items-center gap-2 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl border border-blue-200 transition-all shadow-sm">
-                <LayoutDashboard className="w-4 h-4" /> Command Center
-              </Link>
-            )}
-
-            {/* Developer & Manager: submit EOD */}
-            {(role === "developer" || role === "manager") && pathname !== "/eod" && (
-              <Link href="/eod" className="hidden sm:flex items-center gap-2 text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-4 py-2 rounded-xl border border-amber-200 transition-all shadow-sm">
-                <ClipboardList className="w-4 h-4" /> EOD Report
-              </Link>
-            )}
-
-            {/* Admin & Manager: view all EOD reports */}
-            {(role === "admin" || role === "manager") && pathname !== "/eod/overview" && (
-              <Link href="/eod/overview" className="hidden sm:flex items-center gap-2 text-sm font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-xl border border-teal-200 transition-all shadow-sm">
-                <ListChecks className="w-4 h-4" /> EOD Overview
-              </Link>
-            )}
-
-            <button 
-              onClick={handleLogout} 
-              className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-full hover:bg-rose-500/20 hover:text-rose-300 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)]"
-            >
-              <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Drop Access</span>
-            </button>
+            {/* Every other nav/action button lives in the off-canvas menu now */}
+            <NavDrawer />
           </div>
         )}
       </div>

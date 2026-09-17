@@ -192,7 +192,7 @@ export default function AddWebsitePage() {
   };
 
   const inputCls =
-    "w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none";
+    "w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[var(--accent)] focus:outline-none";
   const selectCls =
     "w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none";
 
@@ -202,7 +202,7 @@ export default function AddWebsitePage() {
         <div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
+            className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
           </Link>
@@ -211,7 +211,7 @@ export default function AddWebsitePage() {
         <button
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="inline-flex items-center justify-center px-6 py-2.5 bg-[var(--button)] text-[var(--button-text)] rounded-xl text-sm font-medium hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50"
         >
           {isSubmitting ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Website</>}
         </button>

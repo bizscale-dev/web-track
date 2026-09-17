@@ -438,7 +438,7 @@ export default function EodClient() {
   if (authLoading || isLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
       </div>
     );
   }
@@ -457,7 +457,7 @@ export default function EodClient() {
     <main className="p-4 sm:p-8 max-w-4xl mx-auto w-full">
       <Link
         href="/dashboard"
-        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
+        className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
       </Link>
@@ -466,8 +466,8 @@ export default function EodClient() {
           <ClipboardList className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">End of Day Report</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">End of Day Report</h1>
+          <p className="text-[var(--bg-muted)] text-sm mt-1">
             {resolvedName} · {report?.report_date}
           </p>
         </div>
@@ -492,14 +492,14 @@ export default function EodClient() {
           </button>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-8">
+        <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-6 mb-8">
           {!selectedSite ? (
             <>
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Select a site</h2>
+              <h2 className="text-lg font-bold text-[var(--card-foreground)] mb-4">Select a site</h2>
 
               {isLoadingSites ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
                 </div>
               ) : (
                 <>
@@ -518,7 +518,7 @@ export default function EodClient() {
                           value={siteSearch}
                           onChange={(e) => setSiteSearch(e.target.value)}
                           placeholder="Search sites..."
-                          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                         />
                       </div>
                       <div className="max-h-96 overflow-y-auto space-y-1.5 pr-1 mb-4">
@@ -526,9 +526,9 @@ export default function EodClient() {
                           <button
                             key={site.name}
                             onClick={() => selectSite(site)}
-                            className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all text-left"
+                            className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 hover:border-[var(--accent)]/40 hover:bg-[var(--accent-light)] transition-all text-left"
                           >
-                            <span className="font-medium text-sm text-gray-800">{site.name}</span>
+                            <span className="font-medium text-sm text-[var(--card-foreground)]">{site.name}</span>
                             <span
                               className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded shrink-0 ${
                                 site.status === "live"
@@ -541,35 +541,35 @@ export default function EodClient() {
                           </button>
                         ))}
                         {filteredSites.length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-6">No sites match your search.</p>
+                          <p className="text-sm text-[var(--card-muted)] text-center py-6">No sites match your search.</p>
                         )}
                       </div>
                     </>
                   )}
 
                   {isAddingManualSite ? (
-                    <div className="p-4 border border-blue-200 bg-blue-50/40 rounded-xl space-y-3">
+                    <div className="p-4 border border-[var(--accent)]/30 bg-[var(--accent-light)] rounded-xl space-y-3">
                       <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Add site manually</p>
                       <input
                         type="text"
                         value={manualSiteName}
                         onChange={(e) => setManualSiteName(e.target.value)}
                         placeholder="Site name"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                       />
                       <input
                         type="text"
                         value={manualSiteLink}
                         onChange={(e) => setManualSiteLink(e.target.value)}
                         placeholder="Site link (optional, e.g. example.com)"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                       />
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={addManualSite}
                           disabled={!manualSiteName.trim()}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                          className="px-4 py-2 bg-[var(--button)] text-[var(--button-text)] rounded-lg text-sm font-bold hover:bg-[var(--button-hover)] disabled:opacity-40 transition-colors flex items-center gap-1.5"
                         >
                           <ArrowRight className="w-4 h-4" /> Continue
                         </button>
@@ -590,7 +590,7 @@ export default function EodClient() {
                     <button
                       type="button"
                       onClick={() => setIsAddingManualSite(true)}
-                      className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/50 transition-all"
+                      className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-[var(--card-muted)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)] hover:bg-[var(--accent-light)] transition-all"
                     >
                       <PlusCircle className="w-4 h-4" /> Can't find your site? Add it manually
                     </button>
@@ -602,8 +602,8 @@ export default function EodClient() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">{selectedSite.name}</h2>
-                  <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-0.5">
+                  <h2 className="text-lg font-bold text-[var(--card-foreground)]">{selectedSite.name}</h2>
+                  <p className="text-xs text-[var(--card-muted)] flex items-center gap-1.5 mt-0.5">
                     <Globe className="w-3 h-3" />
                     {selectedSite.domain || "No domain on record"}
                   </p>
@@ -613,7 +613,7 @@ export default function EodClient() {
                     setSelectedSite(null);
                     setDraftPages([]);
                   }}
-                  className="text-xs font-bold text-gray-400 hover:text-rose-600 flex items-center gap-1"
+                  className="text-xs font-bold text-[var(--card-muted)] hover:text-rose-600 flex items-center gap-1"
                 >
                   <X className="w-3.5 h-3.5" /> Cancel
                 </button>
@@ -621,7 +621,7 @@ export default function EodClient() {
 
               {isLoadingPages ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
                 </div>
               ) : (
                 <>
@@ -633,7 +633,7 @@ export default function EodClient() {
 
                   {sitePages.length > 0 && (
                     <div className="mb-4">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                      <p className="text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-2">
                         Pages from sitemap
                       </p>
                       <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
@@ -643,16 +643,16 @@ export default function EodClient() {
                             <label
                               key={page.url}
                               className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
-                                checked ? "bg-blue-50 border-blue-200" : "border-gray-200 hover:border-blue-200"
+                                checked ? "bg-[var(--accent-light)] border-[var(--accent)]/30" : "border-gray-200 hover:border-[var(--accent)]/30"
                               }`}
                             >
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => toggleSitemapPage(page)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                className="w-4 h-4 rounded border-gray-300 text-[var(--accent)] focus:ring-[var(--accent)]"
                               />
-                              <span className="text-sm text-gray-700 truncate">{page.label}</span>
+                              <span className="text-sm text-[var(--card-foreground)] truncate">{page.label}</span>
                             </label>
                           );
                         })}
@@ -661,14 +661,14 @@ export default function EodClient() {
                   )}
 
                   <div className="mb-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Add new page</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-2">Add new page</p>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={newPageName}
                         onChange={(e) => setNewPageName(e.target.value)}
                         placeholder="e.g. New pricing page (not live yet)"
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                       />
                       <button
                         type="button"
@@ -683,7 +683,7 @@ export default function EodClient() {
 
                   {draftPages.length > 0 && (
                     <div className="mb-4 space-y-3">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                      <p className="text-xs font-bold uppercase tracking-wider text-[var(--card-muted)]">
                         Selected pages — what changed?
                       </p>
                       {draftPages.map((p) => (
@@ -709,7 +709,7 @@ export default function EodClient() {
                             onChange={(e) => updateDraftNotes(p.key, e.target.value)}
                             placeholder="Describe what changes were made on this page..."
                             rows={2}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
                           />
                         </div>
                       ))}
@@ -719,7 +719,7 @@ export default function EodClient() {
                   <button
                     onClick={commitSite}
                     disabled={!canCommitSite || isSaving}
-                    className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2.5 bg-[var(--button)] text-[var(--button-text)] rounded-lg text-sm font-bold hover:bg-[var(--button-hover)] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
                   >
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
                     Add to EOD
@@ -731,9 +731,9 @@ export default function EodClient() {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+      <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-900">Today's entries</h2>
+          <h2 className="text-lg font-bold text-[var(--card-foreground)]">Today's entries</h2>
           {isEditing ? (
             <button
               onClick={finishEditing}
@@ -758,7 +758,7 @@ export default function EodClient() {
         </div>
 
         {entriesBySite.length === 0 ? (
-          <p className="text-sm text-gray-500 italic py-6 text-center">No entries added yet today.</p>
+          <p className="text-sm text-[var(--card-muted)] italic py-6 text-center">No entries added yet today.</p>
         ) : (
           <div className="space-y-4">
             {entriesBySite.map((group) => {
@@ -771,7 +771,7 @@ export default function EodClient() {
                         href={siteDomain}
                         target="_blank"
                         rel="noreferrer"
-                        className="hover:text-blue-600 hover:underline"
+                        className="hover:text-[var(--accent)] hover:underline"
                       >
                         {group.siteName}
                       </a>
@@ -782,33 +782,33 @@ export default function EodClient() {
                   <div className="divide-y divide-gray-100">
                     {group.items.map((entry) =>
                       editingEntryId === entry.id ? (
-                        <div key={entry.id} className="px-4 py-3 space-y-2 bg-blue-50/30">
+                        <div key={entry.id} className="px-4 py-3 space-y-2 bg-[var(--accent-light)]">
                           <input
                             type="text"
                             value={editLabel}
                             onChange={(e) => setEditLabel(e.target.value)}
                             placeholder="Page name"
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                           />
                           <input
                             type="text"
                             value={editUrl}
                             onChange={(e) => setEditUrl(e.target.value)}
                             placeholder="Page URL (optional)"
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                           />
                           <textarea
                             value={editNotes}
                             onChange={(e) => setEditNotes(e.target.value)}
                             placeholder="Describe what changed on this page..."
                             rows={2}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
                           />
                           <div className="flex gap-2">
                             <button
                               onClick={saveEditEntry}
                               disabled={isSavingEntry || !editLabel.trim() || !editNotes.trim()}
-                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                              className="px-3 py-1.5 bg-[var(--button)] text-[var(--button-text)] rounded-lg text-xs font-bold hover:bg-[var(--button-hover)] disabled:opacity-40 transition-colors flex items-center gap-1.5"
                             >
                               {isSavingEntry ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -829,13 +829,13 @@ export default function EodClient() {
                       ) : (
                         <div key={entry.id} className="px-4 py-3 flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                            <p className="text-sm font-medium text-[var(--card-foreground)] flex items-center gap-1.5">
                               {entry.page_url ? (
                                 <a
                                   href={entry.page_url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="hover:text-blue-600 hover:underline"
+                                  className="hover:text-[var(--accent)] hover:underline"
                                 >
                                   {entry.page_label}
                                 </a>
@@ -848,19 +848,19 @@ export default function EodClient() {
                                 </span>
                               )}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">{entry.notes}</p>
+                            <p className="text-xs text-[var(--card-muted)] mt-1 whitespace-pre-wrap">{entry.notes}</p>
                           </div>
                           {isEditable && (
                             <div className="flex items-center gap-2 shrink-0">
                               <button
                                 onClick={() => startEditEntry(entry)}
-                                className="text-gray-300 hover:text-blue-500"
+                                className="text-[var(--card-muted)] hover:text-[var(--accent)]"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => deleteEntry(entry.id)}
-                                className="text-gray-300 hover:text-rose-500"
+                                className="text-[var(--card-muted)] hover:text-rose-500"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -877,14 +877,14 @@ export default function EodClient() {
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mt-6">
+      <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-6 mt-6">
         <button
           onClick={() => setShowPastReports((current) => !current)}
           className="w-full flex items-center justify-between gap-3 text-left"
         >
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-gray-400" />
-            <h2 className="text-lg font-bold text-gray-900">My Previous EODs</h2>
+            <History className="w-4 h-4 text-[var(--card-muted)]" />
+            <h2 className="text-lg font-bold text-[var(--card-foreground)]">My Previous EODs</h2>
             {!isLoadingPastReports && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
                 {pastReports.length}
@@ -892,9 +892,9 @@ export default function EodClient() {
             )}
           </div>
           {showPastReports ? (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+            <ChevronDown className="w-4 h-4 text-[var(--card-muted)]" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <ChevronRight className="w-4 h-4 text-[var(--card-muted)]" />
           )}
         </button>
 
@@ -902,10 +902,10 @@ export default function EodClient() {
           <div className="mt-4">
             {isLoadingPastReports ? (
               <div className="flex justify-center py-10">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
               </div>
             ) : pastReports.length === 0 ? (
-              <p className="text-sm text-gray-500 italic py-6 text-center">No previous EOD reports yet.</p>
+              <p className="text-sm text-[var(--card-muted)] italic py-6 text-center">No previous EOD reports yet.</p>
             ) : (
               <div className="flex flex-col gap-3">
                 {pastReports.map((pastReport) => {
@@ -929,13 +929,13 @@ export default function EodClient() {
                       >
                         <div className="flex items-center gap-3">
                           {isOpen ? (
-                            <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                            <ChevronDown className="w-4 h-4 text-[var(--card-muted)] shrink-0" />
                           ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                            <ChevronRight className="w-4 h-4 text-[var(--card-muted)] shrink-0" />
                           )}
                           <div>
-                            <p className="font-bold text-sm text-gray-900">{pastReport.report_date}</p>
-                            <p className="text-xs text-gray-400">
+                            <p className="font-bold text-sm text-[var(--card-foreground)]">{pastReport.report_date}</p>
+                            <p className="text-xs text-[var(--card-muted)]">
                               {pastReport.eod_entries.length} page{pastReport.eod_entries.length === 1 ? "" : "s"} across{" "}
                               {entriesBySite.length} site{entriesBySite.length === 1 ? "" : "s"}
                             </p>
@@ -963,13 +963,13 @@ export default function EodClient() {
                             const siteDomain = group.items[0]?.site_domain;
                             return (
                               <div key={group.siteName} className="px-4 py-3">
-                                <p className="text-sm font-bold text-gray-800 mb-2">
+                                <p className="text-sm font-bold text-[var(--card-foreground)] mb-2">
                                   {siteDomain ? (
                                     <a
                                       href={siteDomain}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="hover:text-blue-600 hover:underline"
+                                      className="hover:text-[var(--accent)] hover:underline"
                                     >
                                       {group.siteName}
                                     </a>
@@ -980,13 +980,13 @@ export default function EodClient() {
                                 <div className="space-y-2 pl-2 border-l-2 border-gray-100">
                                   {group.items.map((entry) => (
                                     <div key={entry.id} className="pl-3">
-                                      <p className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+                                      <p className="text-xs font-medium text-[var(--card-foreground)] flex items-center gap-1.5">
                                         {entry.page_url ? (
                                           <a
                                             href={entry.page_url}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="hover:text-blue-600 hover:underline"
+                                            className="hover:text-[var(--accent)] hover:underline"
                                           >
                                             {entry.page_label}
                                           </a>
@@ -999,7 +999,7 @@ export default function EodClient() {
                                           </span>
                                         )}
                                       </p>
-                                      <p className="text-xs text-gray-500 mt-0.5">{entry.notes}</p>
+                                      <p className="text-xs text-[var(--card-muted)] mt-0.5 whitespace-pre-wrap">{entry.notes}</p>
                                     </div>
                                   ))}
                                 </div>

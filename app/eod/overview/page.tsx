@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Clock,
   ArrowLeft,
+  ClipboardCheck,
 } from "lucide-react";
 
 type DateFilter = "today" | "week" | "all";
@@ -27,7 +28,7 @@ function isWithinDays(dateStr: string, days: number) {
 
 export default function EodOverviewPage() {
   const { role, loading: authLoading } = useAuth();
-  const canView = role === "admin" || role === "manager";
+  const canView = role === "admin" || role === "manager" || role === "hr";
 
   const [reports, setReports] = useState<EodReportWithEntries[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +81,7 @@ export default function EodOverviewPage() {
   if (authLoading || isLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
       </div>
     );
   }
@@ -90,27 +91,36 @@ export default function EodOverviewPage() {
       <div className="p-10 max-w-2xl mx-auto text-center mt-20 bg-rose-50 border border-rose-100 rounded-2xl">
         <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Clearance Required</h1>
-        <p className="text-gray-600">Only Admin and Manager can view the EOD overview.</p>
+        <p className="text-gray-600">Only Admin, Manager, and HR can view the EOD overview.</p>
       </div>
     );
   }
 
   return (
     <main className="p-4 sm:p-8 max-w-5xl mx-auto w-full">
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
-      </Link>
+      {role === "hr" ? (
+        <Link
+          href="/tasks/overview"
+          className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
+        >
+          <ClipboardCheck className="w-4 h-4 mr-1" /> View Tasks Overview
+        </Link>
+      ) : (
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+        </Link>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-teal-600 text-white rounded-xl shadow-sm">
             <ListChecks className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">EOD Overview</h1>
-            <p className="text-gray-500 text-sm mt-1">All developer and manager end-of-day reports.</p>
+            <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">EOD Overview</h1>
+            <p className="text-[var(--bg-muted)] text-sm mt-1">All developer and manager end-of-day reports.</p>
           </div>
         </div>
 
@@ -121,7 +131,7 @@ export default function EodOverviewPage() {
               onClick={() => setDateFilter(filter)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
                 dateFilter === filter
-                  ? "bg-teal-600 text-white"
+                  ? "bg-[var(--button)] text-[var(--button-text)]"
                   : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50"
               }`}
             >
@@ -132,14 +142,14 @@ export default function EodOverviewPage() {
       </div>
 
       {groupedByDate.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-10 text-center">
-          <p className="text-gray-500">No EOD reports for this range.</p>
+        <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-10 text-center">
+          <p className="text-[var(--card-muted)]">No EOD reports for this range.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
           {groupedByDate.map(([date, dateReports]) => (
             <div key={date}>
-              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">{date}</h2>
+              <h2 className="text-sm font-bold text-[var(--bg-muted)] uppercase tracking-wider mb-3">{date}</h2>
               <div className="flex flex-col gap-3">
                 {dateReports.map((report) => {
                   const isOpen = expanded.has(report.id);
@@ -155,7 +165,7 @@ export default function EodOverviewPage() {
                   );
 
                   return (
-                    <div key={report.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div key={report.id} className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm overflow-hidden">
                       <button
                         onClick={() => toggleExpanded(report.id)}
                         className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50/50 transition-colors text-left"
@@ -167,8 +177,8 @@ export default function EodOverviewPage() {
                             <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                           )}
                           <div>
-                            <p className="font-bold text-gray-900">{report.team_member_name}</p>
-                            <p className="text-xs text-gray-400">
+                            <p className="font-bold text-[var(--card-foreground)]">{report.team_member_name}</p>
+                            <p className="text-xs text-[var(--card-muted)]">
                               {report.eod_entries.length} page{report.eod_entries.length === 1 ? "" : "s"} across{" "}
                               {entriesBySite.length} site{entriesBySite.length === 1 ? "" : "s"}
                             </p>
@@ -196,13 +206,13 @@ export default function EodOverviewPage() {
                             const siteDomain = group.items[0]?.site_domain;
                             return (
                               <div key={group.siteName} className="px-5 py-3">
-                                <p className="text-sm font-bold text-gray-800 mb-2">
+                                <p className="text-sm font-bold text-[var(--card-foreground)] mb-2">
                                   {siteDomain ? (
                                     <a
                                       href={siteDomain}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="hover:text-blue-600 hover:underline"
+                                      className="hover:text-[var(--accent)] hover:underline"
                                     >
                                       {group.siteName}
                                     </a>
@@ -213,13 +223,13 @@ export default function EodOverviewPage() {
                                 <div className="space-y-2 pl-2 border-l-2 border-gray-100">
                                   {group.items.map((entry) => (
                                     <div key={entry.id} className="pl-3">
-                                      <p className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+                                      <p className="text-xs font-medium text-[var(--card-foreground)] flex items-center gap-1.5">
                                         {entry.page_url ? (
                                           <a
                                             href={entry.page_url}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="hover:text-blue-600 hover:underline"
+                                            className="hover:text-[var(--accent)] hover:underline"
                                           >
                                             {entry.page_label}
                                           </a>
@@ -232,7 +242,7 @@ export default function EodOverviewPage() {
                                           </span>
                                         )}
                                       </p>
-                                      <p className="text-xs text-gray-500 mt-0.5">{entry.notes}</p>
+                                      <p className="text-xs text-[var(--card-muted)] mt-0.5 whitespace-pre-wrap">{entry.notes}</p>
                                     </div>
                                   ))}
                                 </div>

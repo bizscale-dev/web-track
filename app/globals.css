@@ -3,6 +3,24 @@
 :root {
   --background: #f6f8fc;
   --foreground: #0f172a;
+
+  /* Per-user 3-color theme — overridden at runtime per signed-in user
+     (see lib/theme.ts + components/AuthProvider.tsx). These are the
+     pre-login / unset-preference defaults, matching the app's original look. */
+  --bg: #f6f8fc;
+  --bg-foreground: #0f172a;
+  --bg-muted: #64748b;
+  --card: #ffffff;
+  --card-border: #f1f5f9;
+  --card-foreground: #0f172a;
+  --card-muted: #64748b;
+  --button: #2563eb;
+  --button-hover: #1d4ed8;
+  --button-text: #ffffff;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-light: #eff6ff;
+  --accent-text: #ffffff;
 }
 
 @theme inline {
@@ -13,10 +31,7 @@
 }
 
 body {
-  background:
-    radial-gradient(circle at 20% 0%, rgba(59, 130, 246, 0.06), transparent 26%),
-    radial-gradient(circle at 80% 10%, rgba(14, 165, 233, 0.05), transparent 24%),
-    linear-gradient(180deg, #fbfdff 0%, var(--background) 42%, #edf2f8 100%);
+  background: var(--bg);
   color: var(--foreground);
   font-family: "Segoe UI", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
 }

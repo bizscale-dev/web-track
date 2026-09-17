@@ -97,11 +97,11 @@ export default function WebsiteCard({
   }, [website.status, website.id, website.created_at, holidays]);
 
   return (
-    <article className="rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+    <article className="rounded-[24px] border border-[var(--card-border)] bg-[var(--card)]/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-xl font-bold tracking-tight text-slate-950">
+            <h2 className="text-xl font-bold tracking-tight text-[var(--card-foreground)]">
               {website.website_name}
             </h2>
 
@@ -129,15 +129,15 @@ export default function WebsiteCard({
               href={website.domain}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 block truncate text-sm text-slate-500 hover:text-blue-600 hover:underline w-fit"
+              className="mt-2 block truncate text-sm text-[var(--card-muted)] hover:text-[var(--accent)] hover:underline w-fit"
             >
               {website.domain}
             </a>
           ) : (
-            <p className="mt-2 truncate text-sm text-slate-500">Unassigned</p>
+            <p className="mt-2 truncate text-sm text-[var(--card-muted)]">Unassigned</p>
           )}
 
-          <div className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-3">
+          <div className="mt-5 grid gap-4 text-sm text-[var(--card-muted)] sm:grid-cols-3">
             <Meta label="Developer" value={website.developer} />
             <Meta label="Content" value={website.content_writer} />
             <Meta label="SEO" value={website.seo_person} />
@@ -203,10 +203,10 @@ export default function WebsiteCard({
 function Meta({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--card-muted)]">
         {label}
       </p>
-      <p className="mt-1 truncate font-medium text-slate-700">
+      <p className="mt-1 truncate font-medium text-[var(--card-foreground)]">
         {value || "Unassigned"}
       </p>
     </div>

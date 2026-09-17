@@ -49,10 +49,10 @@ export default function DashboardStats({ websites, activeStatus, onStatusClick }
         accent="from-amber-500 to-orange-500"
       />
 
-      <div className="rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] sm:col-span-2 xl:col-span-4">
+      <div className="rounded-[24px] border border-[var(--card-border)] bg-[var(--card)]/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] sm:col-span-2 xl:col-span-4">
         <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">Status Breakdown</p>
-          <p className="text-xs text-slate-500">{websites.length} tracked items</p>
+          <p className="text-sm font-semibold text-[var(--card-foreground)]">Status Breakdown</p>
+          <p className="text-xs text-[var(--card-muted)]">{websites.length} tracked items</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {WEBSITE_STATUSES.map((status, index) => {
@@ -100,13 +100,13 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+    <div className="rounded-[24px] border border-[var(--card-border)] bg-[var(--card)]/95 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--card-muted)]">
             {label}
           </p>
-          <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">
+          <p className="mt-3 text-4xl font-black tracking-tight text-[var(--card-foreground)]">
             {value}
           </p>
         </div>

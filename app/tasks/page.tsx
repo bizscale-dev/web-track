@@ -2,9 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { calculateBusinessDuration, formatBusinessDuration } from "@/lib/businessTime";
+import {
+  effectiveAssigneeName,
+  effectiveAssigneeEmail,
+  isLateCompletion,
+  requiresManagerApproval,
+  computeApprovalState,
+} from "@/lib/taskApproval";
 import type { AssignedTask } from "@/type/assignedTask";
 import {
   Loader2,
@@ -21,6 +29,10 @@ import {
   Timer,
   CalendarClock,
   AlertTriangle,
+  Repeat,
+  ShieldCheck,
+  XCircle,
+  MessageSquareWarning,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
@@ -35,14 +47,20 @@ function daysAgo(dateStr: string): string {
 }
 
 export default function TasksPage() {
+  const router = useRouter();
   const { role, name, email, loading: authLoading } = useAuth();
   const canView = role !== "user" && !!role;
   const isAdmin = role === "admin";
+  const isManager = role === "manager";
+  const isHr = role === "hr";
+  const canAssign = isAdmin || isManager;
 
   const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("mine");
+  // null means "no explicit choice yet" — falls back to a role-appropriate
+  // default below, without needing an effect to sync it once role loads.
+  const [tabOverride, setTabOverride] = useState<Tab | null>(null);
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
@@ -64,17 +82,33 @@ export default function TasksPage() {
 
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [completionNotesDraft, setCompletionNotesDraft] = useState("");
+  const [lateReasonDraft, setLateReasonDraft] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
+
+  const [reassigningId, setReassigningId] = useState<number | null>(null);
+  const [reassignToEmail, setReassignToEmail] = useState("");
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [reassignError, setReassignError] = useState<string | null>(null);
+
+  const [decidingId, setDecidingId] = useState<number | null>(null);
+
+  // Admin never has tasks assigned to them, so they don't get a "mine" tab —
+  // default them straight into tracking what they've handed out. Managers
+  // both receive work and hand it off, so they keep "mine" as the default.
+  // HR has no tasks of their own at all — it's a pure tracker, so they land
+  // straight on "all".
+  const tab: Tab = tabOverride ?? (isHr ? "all" : isAdmin ? "assigned" : "mine");
+  const setTab = setTabOverride;
 
   useEffect(() => {
     if (canView && email) {
       loadTasks();
       loadHolidays();
       markTasksSeen();
-      if (isAdmin) loadTeamMembers();
+      if (canAssign) loadTeamMembers();
     }
-  }, [canView, isAdmin, email]);
+  }, [canView, canAssign, email]);
 
   // Clears the notification dot — visiting this page means the assignee has
   // now seen whatever's newly assigned to them, and the admin has now seen
@@ -94,6 +128,11 @@ export default function TasksPage() {
         .update({ assignee_seen: true })
         .eq("assigned_to_email", email)
         .eq("assignee_seen", false);
+      await supabase
+        .from("assigned_tasks")
+        .update({ assignee_seen: true })
+        .eq("reassigned_to_email", email)
+        .eq("assignee_seen", false);
     }
   };
 
@@ -101,6 +140,12 @@ export default function TasksPage() {
     const interval = setInterval(() => setClockTick((t) => t + 1), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // HR's tracker view is the grouped-by-person overview, not this
+  // assign/act-on-tasks page — send them there whichever way they arrived.
+  useEffect(() => {
+    if (isHr) router.replace("/tasks/overview");
+  }, [isHr, router]);
 
   const loadTasks = async () => {
     setIsLoading(true);
@@ -137,9 +182,16 @@ export default function TasksPage() {
     setTeamMembers((data as TeamMember[]) || []);
   };
 
+  // Admin can assign to anyone (any non-admin). A manager can only assign or
+  // reassign to their own non-manager reports — never to another manager.
+  const assignableMembers = useMemo(
+    () => (isAdmin ? teamMembers : teamMembers.filter((m) => m.role !== "manager")),
+    [teamMembers, isAdmin]
+  );
+
   const submitAssign = async () => {
     if (!assignTitle.trim() || !assignToEmail) return;
-    const assignee = teamMembers.find((m) => m.email === assignToEmail);
+    const assignee = assignableMembers.find((m) => m.email === assignToEmail);
     if (!assignee) return;
 
     setIsAssigning(true);
@@ -187,24 +239,45 @@ export default function TasksPage() {
   const startCompleting = (task: AssignedTask) => {
     setCompletingId(task.id);
     setCompletionNotesDraft("");
+    setLateReasonDraft("");
     setCompleteError(null);
   };
 
   const submitComplete = async (taskId: number) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
     if (!completionNotesDraft.trim()) return;
+
+    const now = new Date();
+    const late = !!task.due_at && now > new Date(task.due_at);
+    if (late && !lateReasonDraft.trim()) {
+      setCompleteError("A reason is required since this is past its deadline.");
+      return;
+    }
 
     setIsCompleting(true);
     setCompleteError(null);
 
-    const { error: updateError } = await supabase
-      .from("assigned_tasks")
-      .update({
-        status: "completed",
-        completion_notes: completionNotesDraft.trim(),
-        completed_at: new Date().toISOString(),
-        admin_seen: false,
-      })
-      .eq("id", taskId);
+    const hasManager = requiresManagerApproval(task);
+    const update: Record<string, unknown> = {
+      status: "completed",
+      completion_notes: completionNotesDraft.trim(),
+      completed_at: now.toISOString(),
+      admin_seen: false,
+    };
+
+    if (late) {
+      update.late_reason = lateReasonDraft.trim();
+      update.manager_approval = hasManager ? "pending" : "not_required";
+      update.admin_approval = hasManager ? "not_required" : "pending";
+    } else {
+      // On-time completion auto-approves — no manual review needed.
+      update.manager_approval = hasManager ? "approved" : "not_required";
+      update.admin_approval = "approved";
+      update.approved_at = now.toISOString();
+    }
+
+    const { error: updateError } = await supabase.from("assigned_tasks").update(update).eq("id", taskId);
 
     setIsCompleting(false);
 
@@ -215,6 +288,85 @@ export default function TasksPage() {
 
     setCompletingId(null);
     setCompletionNotesDraft("");
+    setLateReasonDraft("");
+    await loadTasks();
+  };
+
+  const startReassigning = (task: AssignedTask) => {
+    setReassigningId(task.id);
+    setReassignToEmail("");
+    setReassignError(null);
+  };
+
+  const submitReassign = async (taskId: number) => {
+    const assignee = assignableMembers.find((m) => m.email === reassignToEmail);
+    if (!assignee) return;
+
+    setIsReassigning(true);
+    setReassignError(null);
+
+    const { error: updateError } = await supabase
+      .from("assigned_tasks")
+      .update({
+        reassigned_to_name: assignee.name,
+        reassigned_to_email: assignee.email,
+        reassigned_by_name: name || "Unknown Manager",
+        reassigned_by_email: email || "",
+        reassigned_at: new Date().toISOString(),
+        status: "pending",
+        started_at: null,
+        assignee_seen: false,
+      })
+      .eq("id", taskId);
+
+    setIsReassigning(false);
+
+    if (updateError) {
+      setReassignError(updateError.message);
+      return;
+    }
+
+    setReassigningId(null);
+    setReassignToEmail("");
+    await loadTasks();
+  };
+
+  // Manager's call on a late completion: approve the reason, or mark it not
+  // delivered on time. Either way it then moves to the admin for the final
+  // say — the manager alone can't finalize approval.
+  const submitManagerDecision = async (taskId: number, decision: "approved" | "rejected") => {
+    setDecidingId(taskId);
+    await supabase
+      .from("assigned_tasks")
+      .update({
+        manager_approval: decision,
+        manager_approval_at: new Date().toISOString(),
+        manager_approval_by_name: name || "Unknown Manager",
+        manager_approval_by_email: email || "",
+        admin_approval: "pending",
+      })
+      .eq("id", taskId);
+    setDecidingId(null);
+    await loadTasks();
+  };
+
+  const submitAdminDecision = async (taskId: number, decision: "approved" | "rejected") => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    setDecidingId(taskId);
+    const now = new Date().toISOString();
+    const update: Record<string, unknown> = {
+      admin_approval: decision,
+      admin_approval_at: now,
+      admin_approval_by_name: name || "Unknown Admin",
+      admin_approval_by_email: email || "",
+    };
+    if (decision === "approved" && (task.manager_approval === "approved" || task.manager_approval === "not_required")) {
+      update.approved_at = now;
+    }
+    await supabase.from("assigned_tasks").update(update).eq("id", taskId);
+    setDecidingId(null);
     await loadTasks();
   };
 
@@ -229,9 +381,9 @@ export default function TasksPage() {
   const filteredTasks = useMemo(() => {
     const base =
       tab === "mine"
-        ? tasks.filter((t) => t.assigned_to_email === email)
+        ? tasks.filter((t) => effectiveAssigneeEmail(t) === email)
         : tab === "assigned"
-        ? tasks.filter((t) => t.assigned_by_email === email)
+        ? tasks.filter((t) => t.assigned_by_email === email || t.reassigned_by_email === email)
         : tasks;
 
     // Urgent first, then anything not yet completed, newest first within each group.
@@ -245,13 +397,13 @@ export default function TasksPage() {
   }, [tasks, tab, email]);
 
   const pendingMineCount = tasks.filter(
-    (t) => t.assigned_to_email === email && t.status !== "completed"
+    (t) => effectiveAssigneeEmail(t) === email && t.status !== "completed"
   ).length;
 
-  if (authLoading) {
+  if (authLoading || isHr) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
       </div>
     );
   }
@@ -270,7 +422,7 @@ export default function TasksPage() {
     <main className="p-4 sm:p-8 max-w-4xl mx-auto w-full">
       <Link
         href="/dashboard"
-        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4 transition-colors"
+        className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
       </Link>
@@ -281,49 +433,49 @@ export default function TasksPage() {
             <ClipboardCheck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              {isAdmin ? "Assign tasks and track completion notes" : "Tasks assigned to you"}
+            <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">Tasks</h1>
+            <p className="text-[var(--bg-muted)] text-sm mt-1">
+              {canAssign ? "Assign tasks and track completion notes" : isHr ? "Track every task and its approval status" : "Tasks assigned to you"}
             </p>
           </div>
         </div>
 
-        {isAdmin && (
+        {canAssign && (
           <button
             type="button"
             onClick={() => setShowAssignForm((v) => !v)}
-            className="inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-blue-600 text-white text-sm font-semibold shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:-translate-y-0.5 hover:bg-blue-700 shrink-0"
+            className="inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-[var(--button)] text-[var(--button-text)] text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--button-hover)] shrink-0"
           >
             <Plus className="w-4 h-4" /> Assign Task
           </button>
         )}
       </div>
 
-      {isAdmin && showAssignForm && (
-        <div className="bg-white border border-blue-200 rounded-2xl shadow-sm p-5 mb-6 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">New Task</p>
+      {canAssign && showAssignForm && (
+        <div className="bg-[var(--card)] border border-[var(--accent)]/30 rounded-2xl shadow-sm p-5 mb-6 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-[var(--card-muted)]">New Task</p>
 
           <input
             type="text"
             value={assignTitle}
             onChange={(e) => setAssignTitle(e.target.value)}
             placeholder="Task title"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
           />
           <textarea
             value={assignDescription}
             onChange={(e) => setAssignDescription(e.target.value)}
             placeholder="Details (optional)"
             rows={3}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
           />
           <select
             value={assignToEmail}
             onChange={(e) => setAssignToEmail(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] bg-white"
           >
             <option value="">Assign to...</option>
-            {teamMembers.map((m) => (
+            {assignableMembers.map((m) => (
               <option key={m.email} value={m.email}>
                 {m.name} ({m.role})
               </option>
@@ -331,14 +483,14 @@ export default function TasksPage() {
           </select>
 
           <div>
-            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1.5">
               <CalendarClock className="w-3.5 h-3.5" /> Deadline (optional)
             </label>
             <input
               type="datetime-local"
               value={assignDueAt}
               onChange={(e) => setAssignDueAt(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
             />
           </div>
 
@@ -347,7 +499,7 @@ export default function TasksPage() {
             onClick={() => setAssignUrgent((v) => !v)}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50/50"
           >
-            <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <span className="flex items-center gap-2 text-sm font-medium text-[var(--card-foreground)]">
               <Flame className={`w-4 h-4 ${assignUrgent ? "text-rose-500" : "text-gray-400"}`} />
               Mark as Urgent
             </span>
@@ -371,7 +523,7 @@ export default function TasksPage() {
               type="button"
               onClick={submitAssign}
               disabled={isAssigning || !assignTitle.trim() || !assignToEmail}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 bg-[var(--button)] text-[var(--button-text)] rounded-lg text-sm font-bold hover:bg-[var(--button-hover)] disabled:opacity-40 transition-colors flex items-center gap-1.5"
             >
               {isAssigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Assign
@@ -380,7 +532,7 @@ export default function TasksPage() {
               type="button"
               onClick={() => setShowAssignForm(false)}
               disabled={isAssigning}
-              className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 text-[var(--card-muted)] rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
@@ -389,54 +541,62 @@ export default function TasksPage() {
       )}
 
       <div className="inline-flex rounded-2xl bg-slate-100/95 p-1 border border-slate-200/40 shadow-inner mb-6">
-        <button
-          type="button"
-          onClick={() => setTab("mine")}
-          className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${
-            tab === "mine" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          Assigned to Me{pendingMineCount > 0 ? ` (${pendingMineCount})` : ""}
-        </button>
-        {isAdmin && (
-          <>
-            <button
-              type="button"
-              onClick={() => setTab("assigned")}
-              className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${
-                tab === "assigned" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Assigned by Me
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("all")}
-              className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${
-                tab === "all" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              All
-            </button>
-          </>
+        {!isAdmin && !isHr && (
+          <button
+            type="button"
+            onClick={() => setTab("mine")}
+            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+              tab === "mine" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Assigned to Me{pendingMineCount > 0 ? ` (${pendingMineCount})` : ""}
+          </button>
+        )}
+        {canAssign && (
+          <button
+            type="button"
+            onClick={() => setTab("assigned")}
+            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+              tab === "assigned" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Assigned by Me
+          </button>
+        )}
+        {(isAdmin || isHr) && (
+          <button
+            type="button"
+            onClick={() => setTab("all")}
+            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+              tab === "all" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            All
+          </button>
         )}
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
         </div>
       ) : error ? (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">{error}</div>
       ) : (
         <div className="space-y-2.5">
           {filteredTasks.map((task) => {
-            const isMine = task.assigned_to_email === email;
+            const isMine = effectiveAssigneeEmail(task) === email;
             const isPending = task.status === "pending";
             const isInProgress = task.status === "in_progress";
             const isCompleted = task.status === "completed";
             const isCompletingThis = completingId === task.id;
             const isStartingThis = startingId === task.id;
+            const isReassigningThis = reassigningId === task.id;
+            const isDecidingThis = decidingId === task.id;
+
+            const wasReassigned = !!task.reassigned_to_email;
+            const canReassign =
+              isManager && task.assigned_to_email === email && !wasReassigned && !isCompleted;
 
             const liveDuration =
               isInProgress && task.started_at
@@ -463,28 +623,41 @@ export default function TasksPage() {
             // A task completed after its deadline stays flagged even once
             // done — isOverdue alone clears the moment status flips, which
             // would otherwise hide that it was actually late.
-            const completedLate =
-              isCompleted && !!task.due_at && !!task.completed_at && new Date(task.completed_at) > new Date(task.due_at);
+            const completedLate = isCompleted && isLateCompletion(task);
             const lateByDuration = completedLate
               ? formatBusinessDuration(calculateBusinessDuration(new Date(task.due_at!), new Date(task.completed_at!), holidays))
               : null;
+
+            const approvalState = computeApprovalState(task);
+            const managerNeedsToDecide =
+              isManager && task.reassigned_by_email === email && approvalState === "pending_manager";
+            const adminNeedsToDecide = isAdmin && approvalState === "pending_admin";
+
+            // Status-tinted rows (late/completed/urgent/rejected) sit on a
+            // fixed light pastel regardless of theme, so their hardcoded dark
+            // text stays correct. Only the plain/default row uses the themed
+            // --card background, so only it needs theme-aware text color.
+            const isDefaultCard =
+              approvalState !== "rejected" && !completedLate && !isCompleted && !isOverdue && !task.is_urgent;
 
             return (
               <div
                 key={task.id}
                 className={`rounded-2xl border shadow-sm p-4 transition-all ${
-                  completedLate
+                  approvalState === "rejected"
+                    ? "bg-rose-50/50 border-rose-200"
+                    : completedLate
                     ? "bg-amber-50/50 border-amber-200"
                     : isCompleted
                     ? "bg-emerald-50/50 border-emerald-200"
                     : isOverdue || task.is_urgent
                     ? "bg-rose-50/40 border-rose-200"
-                    : "bg-white border-gray-200"
+                    : "bg-[var(--card)] border-[var(--card-border)]"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5 flex-wrap">
+                    <p className={`text-sm font-bold flex items-center gap-1.5 flex-wrap ${isDefaultCard ? "text-[var(--card-foreground)]" : "text-gray-800"}`}>
                       {task.is_urgent && (
                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 flex items-center gap-1">
                           <Flame className="w-3 h-3" /> Urgent
@@ -495,21 +668,51 @@ export default function TasksPage() {
                           <AlertTriangle className="w-3 h-3" /> Completed Late
                         </span>
                       )}
+                      {approvalState === "approved" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" /> Approved
+                        </span>
+                      )}
+                      {approvalState === "rejected" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 flex items-center gap-1">
+                          <XCircle className="w-3 h-3" /> Not Delivered On Time
+                        </span>
+                      )}
+                      {approvalState === "pending_manager" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                          Awaiting Manager Review
+                        </span>
+                      )}
+                      {approvalState === "pending_admin" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                          Awaiting Admin Approval
+                        </span>
+                      )}
                       {task.title}
                     </p>
                     {task.description && (
-                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>
+                      <p className={`text-sm mt-1 whitespace-pre-wrap ${isDefaultCard ? "text-[var(--card-muted)]" : "text-gray-600"}`}>{task.description}</p>
                     )}
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-gray-400">
+                    <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-xs ${isDefaultCard ? "text-[var(--card-muted)]" : "text-gray-400"}`}>
                       <span className="flex items-center gap-1">
-                        <UserIcon className="w-3 h-3" /> {task.assigned_to_name}
+                        <UserIcon className="w-3 h-3" /> {effectiveAssigneeName(task)}
                       </span>
                       <span>assigned by {task.assigned_by_name}</span>
+                      {wasReassigned && (
+                        <span className="flex items-center gap-1 text-indigo-500 font-semibold">
+                          <Repeat className="w-3 h-3" /> reassigned to {task.reassigned_to_name} by{" "}
+                          {task.reassigned_by_name}
+                        </span>
+                      )}
                       <span>{daysAgo(task.created_at)}</span>
                       {dueLabel && (
                         <span
                           className={`flex items-center gap-1 font-semibold ${
-                            isOverdue || completedLate ? "text-rose-600" : "text-gray-500"
+                            isOverdue || completedLate
+                              ? "text-rose-600"
+                              : isDefaultCard
+                              ? "text-[var(--card-muted)]"
+                              : "text-gray-500"
                           }`}
                         >
                           {isOverdue || completedLate ? (
@@ -579,17 +782,74 @@ export default function TasksPage() {
                   </div>
                 )}
 
+                {isCompleted && task.late_reason && (
+                  <div className="mt-3 pt-3 border-t border-amber-100">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-1 flex items-center gap-1">
+                      <MessageSquareWarning className="w-3 h-3" /> Reason for Missing Deadline
+                    </p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.late_reason}</p>
+                  </div>
+                )}
+
                 {isPending && isMine && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-4">
                     <button
                       type="button"
                       onClick={() => startTask(task.id)}
                       disabled={isStartingThis}
-                      className="text-sm font-bold text-blue-700 hover:text-blue-800 flex items-center gap-1.5 disabled:opacity-50"
+                      className="text-sm font-bold text-[var(--accent)] hover:opacity-80 flex items-center gap-1.5 disabled:opacity-50"
                     >
                       {isStartingThis ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                       Start Task
                     </button>
+                    {canReassign && !isReassigningThis && (
+                      <button
+                        type="button"
+                        onClick={() => startReassigning(task)}
+                        className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"
+                      >
+                        <Repeat className="w-4 h-4" /> Reassign
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {canReassign && isReassigningThis && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                    <select
+                      value={reassignToEmail}
+                      onChange={(e) => setReassignToEmail(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                    >
+                      <option value="">Reassign to...</option>
+                      {assignableMembers
+                        .filter((m) => m.email !== email)
+                        .map((m) => (
+                          <option key={m.email} value={m.email}>
+                            {m.name} ({m.role})
+                          </option>
+                        ))}
+                    </select>
+                    {reassignError && <p className="text-xs font-bold text-rose-600">{reassignError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => submitReassign(task.id)}
+                        disabled={isReassigning || !reassignToEmail}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      >
+                        {isReassigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />}
+                        Reassign
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReassigningId(null)}
+                        disabled={isReassigning}
+                        className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -605,6 +865,15 @@ export default function TasksPage() {
                           autoFocus
                           className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
                         />
+                        {task.due_at && new Date() > new Date(task.due_at) && (
+                          <textarea
+                            value={lateReasonDraft}
+                            onChange={(e) => setLateReasonDraft(e.target.value)}
+                            placeholder="This is past its deadline — explain why (required)..."
+                            rows={2}
+                            className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none bg-amber-50/40"
+                          />
+                        )}
                         {completeError && <p className="text-xs font-bold text-rose-600">{completeError}</p>}
                         <div className="flex gap-2">
                           <button
@@ -639,6 +908,62 @@ export default function TasksPage() {
                         <CheckCircle2 className="w-4 h-4" /> Mark Complete
                       </button>
                     )}
+                  </div>
+                )}
+
+                {managerNeedsToDecide && (
+                  <div className="mt-3 pt-3 border-t border-amber-100 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                      Review the reason above, then decide
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => submitManagerDecision(task.id, "approved")}
+                        disabled={isDecidingThis}
+                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      >
+                        {isDecidingThis ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => submitManagerDecision(task.id, "rejected")}
+                        disabled={isDecidingThis}
+                        className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      >
+                        <XCircle className="w-4 h-4" /> Not Delivered On Time
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {adminNeedsToDecide && (
+                  <div className="mt-3 pt-3 border-t border-amber-100 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                      {requiresManagerApproval(task)
+                        ? `Manager ${task.manager_approval === "approved" ? "approved" : "marked this not delivered on time"} — final admin approval needed`
+                        : "Review the reason above, then decide"}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => submitAdminDecision(task.id, "approved")}
+                        disabled={isDecidingThis}
+                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      >
+                        {isDecidingThis ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => submitAdminDecision(task.id, "rejected")}
+                        disabled={isDecidingThis}
+                        className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      >
+                        <XCircle className="w-4 h-4" /> Not Delivered On Time
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
