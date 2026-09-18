@@ -53,6 +53,7 @@ export default function TasksOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [avatarsByEmail, setAvatarsByEmail] = useState<Record<string, string>>({});
 
   async function fetchTasks() {
     setIsLoading(true);
@@ -64,8 +65,20 @@ export default function TasksOverviewPage() {
     setIsLoading(false);
   }
 
+  async function fetchAvatars() {
+    const { data } = await supabase.from("team_members").select("email, avatar_url");
+    const map: Record<string, string> = {};
+    for (const m of (data as { email: string; avatar_url: string | null }[]) || []) {
+      if (m.avatar_url) map[m.email] = m.avatar_url;
+    }
+    setAvatarsByEmail(map);
+  }
+
   useEffect(() => {
-    if (canView) fetchTasks();
+    if (canView) {
+      fetchTasks();
+      fetchAvatars();
+    }
   }, [canView]);
 
   const toggleExpanded = (email: string) => {
@@ -191,8 +204,18 @@ export default function TasksOverviewPage() {
                     ) : (
                       <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     )}
-                    <div className="w-8 h-8 rounded-full bg-sky-600 text-white font-bold flex items-center justify-center shrink-0 text-sm">
-                      {person.name ? person.name.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4" />}
+                    <div className="w-8 h-8 rounded-full bg-sky-600 text-white font-bold flex items-center justify-center shrink-0 text-sm overflow-hidden">
+                      {avatarsByEmail[person.email] ? (
+                        <img
+                          src={avatarsByEmail[person.email]}
+                          alt={person.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : person.name ? (
+                        person.name.charAt(0).toUpperCase()
+                      ) : (
+                        <UserIcon className="w-4 h-4" />
+                      )}
                     </div>
                     <div>
                       <p className="font-bold text-[var(--card-foreground)]">{person.name}</p>

@@ -33,6 +33,17 @@ function normalizeSiteLink(link: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+type SiteSource = "websites" | "automation";
+
+// Fixed internal tools/projects — not pulled from the sheet or `websites`
+// table like client sites, so they're just hardcoded here.
+const AUTOMATION_PROJECTS: EodSiteOption[] = [
+  { name: "Bizscale CRM", domain: "https://bizscale-crm.vercel.app/", status: "automation" },
+  { name: "Rank Tracker", domain: "https://ranktracker.bizscale.pk/", status: "automation" },
+  { name: "Rank Board", domain: "https://rankboard-biz.vercel.app/", status: "automation" },
+  { name: "n8n Automations", domain: "https://n8n.bizscale.pk/home/workflows", status: "automation" },
+];
+
 type DraftPage = {
   key: string;
   label: string;
@@ -54,6 +65,7 @@ export default function EodClient() {
   const [entries, setEntries] = useState<EodEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [siteSource, setSiteSource] = useState<SiteSource>("websites");
   const [siteOptions, setSiteOptions] = useState<EodSiteOption[]>([]);
   const [siteOptionsError, setSiteOptionsError] = useState<string | null>(null);
   const [isLoadingSites, setIsLoadingSites] = useState(false);
@@ -210,6 +222,12 @@ export default function EodClient() {
     setDraftPages([]);
     setSitePages([]);
     setSitePagesError(null);
+
+    if (site.status === "automation") {
+      // No sitemap/pages tracker concept for internal tools — go straight
+      // to manual entry below.
+      return;
+    }
 
     if (site.status === "subdomain_wip" && site.websiteId) {
       setIsLoadingPages(true);
@@ -495,9 +513,47 @@ export default function EodClient() {
         <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-6 mb-8">
           {!selectedSite ? (
             <>
-              <h2 className="text-lg font-bold text-[var(--card-foreground)] mb-4">Select a site</h2>
+              <h2 className="text-lg font-bold text-[var(--card-foreground)] mb-4">Select a project</h2>
 
-              {isLoadingSites ? (
+              <div className="inline-flex rounded-xl bg-slate-100/95 p-1 border border-slate-200/40 shadow-inner mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSiteSource("websites")}
+                  className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                    siteSource === "websites"
+                      ? "bg-[var(--card)] text-[var(--card-foreground)] shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Websites
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSiteSource("automation")}
+                  className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                    siteSource === "automation"
+                      ? "bg-[var(--card)] text-[var(--card-foreground)] shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Automation
+                </button>
+              </div>
+
+              {siteSource === "automation" ? (
+                <div className="space-y-1.5 mb-4">
+                  {AUTOMATION_PROJECTS.map((project) => (
+                    <button
+                      key={project.name}
+                      onClick={() => selectSite(project)}
+                      className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 hover:border-[var(--accent)]/40 hover:bg-[var(--accent-light)] transition-all text-left"
+                    >
+                      <span className="font-medium text-sm text-[var(--card-foreground)]">{project.name}</span>
+                      <span className="text-xs text-[var(--card-muted)] truncate max-w-[45%]">{project.domain}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : isLoadingSites ? (
                 <div className="flex justify-center py-10">
                   <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
                 </div>
@@ -661,13 +717,19 @@ export default function EodClient() {
                   )}
 
                   <div className="mb-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-2">Add new page</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-2">
+                      {selectedSite.status === "automation" ? "Add what you worked on" : "Add new page"}
+                    </p>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={newPageName}
                         onChange={(e) => setNewPageName(e.target.value)}
-                        placeholder="e.g. New pricing page (not live yet)"
+                        placeholder={
+                          selectedSite.status === "automation"
+                            ? "e.g. New workflow / feature"
+                            : "e.g. New pricing page (not live yet)"
+                        }
                         className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                       />
                       <button

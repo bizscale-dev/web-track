@@ -259,6 +259,40 @@ export async function cascadeNameUpdate(oldName: string, newName: string, userId
 
   
 }
+export async function cascadeAvatarUpdate(userId: string, avatarUrl: string) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    return { success: false, error: "Missing Admin database credentials." };
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  try {
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (userError || !user) throw new Error(userError?.message || "Auth user not found");
+
+    if (user.email) {
+      const { error: teamError } = await supabaseAdmin
+        .from("team_members")
+        .update({ avatar_url: avatarUrl })
+        .eq("email", user.email);
+      if (teamError) throw teamError;
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Avatar cascade update failed:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function dispatchCompletionNotification(websiteId: number, reqTitle: string, supportName: string) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

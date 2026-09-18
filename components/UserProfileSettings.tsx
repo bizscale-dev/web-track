@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { X, Lock, User, Loader2, CheckCircle2, Camera, Palette } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useRouter } from "next/navigation";
-import { cascadeNameUpdate } from "@/app/actions";
+import { cascadeNameUpdate, cascadeAvatarUpdate } from "@/app/actions";
 import { applyTheme, DEFAULT_THEME, type ThemeColors } from "@/lib/theme";
 
 // A broad spread across the hue wheel, offered as one-click presets —
@@ -165,6 +165,18 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
       });
 
       if (updateError) throw updateError;
+
+      // Mirror onto team_members so other people (e.g. Tasks Overview) can
+      // see this avatar too — user_metadata is only readable by the owner.
+      if (session.user.id) {
+        const cascadeRes = (await cascadeAvatarUpdate(session.user.id, publicUrl)) as unknown as {
+          success: boolean;
+          error?: string;
+        };
+        if (!cascadeRes.success) {
+          console.error("Failed to cascade avatar to team_members:", cascadeRes.error);
+        }
+      }
 
       setMessage({ type: 'success', text: "Profile picture updated successfully!" });
     } catch (error: any) {
