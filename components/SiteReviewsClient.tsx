@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
@@ -110,9 +110,32 @@ export default function SiteReviewsClient() {
   const [sitesError, setSitesError] = useState<string | null>(null);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
 
-  const [reviewStateBySite, setReviewStateBySite] = useState<Record<string, SiteReviewState>>({});
-  const [lastActivityBySite, setLastActivityBySite] = useState<Record<string, SiteReview>>({});
+  const [reviewRows, setReviewRows] = useState<SiteReview[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+
+  // Derived from the raw rows so a toggle can update the UI instantly (below)
+  // instead of waiting on a network round-trip before the checkbox flips.
+  const { reviewStateBySite, lastActivityBySite } = useMemo(() => {
+    const bySite: Record<string, SiteReview[]> = {};
+    reviewRows.forEach((row) => {
+      const key = row.site_name.toLowerCase();
+      if (!bySite[key]) bySite[key] = [];
+      bySite[key].push(row);
+    });
+
+    const states: Record<string, SiteReviewState> = {};
+    const lastActivity: Record<string, SiteReview> = {};
+    for (const [key, rows] of Object.entries(bySite)) {
+      states[key] = computeSiteReviewState(rows);
+      const relevant = rows.filter((r) => REVIEW_CHECKLIST_ITEMS.includes(r.checklist_item));
+      if (relevant.length > 0) {
+        lastActivity[key] = [...relevant].sort(
+          (a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime()
+        )[0];
+      }
+    }
+    return { reviewStateBySite: states, lastActivityBySite: lastActivity };
+  }, [reviewRows]);
 
   const [search, setSearch] = useState("");
   const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set());
@@ -132,8 +155,8 @@ export default function SiteReviewsClient() {
     }
   }, [canView]);
 
-  const loadSites = async () => {
-    setIsLoadingSites(true);
+  const loadSites = async (silent = false) => {
+    if (!silent) setIsLoadingSites(true);
     setSitesError(null);
 
     try {
@@ -185,34 +208,16 @@ export default function SiteReviewsClient() {
     setManualSiteName("");
     setManualSiteLink("");
     setIsAddingManualSite(false);
-    await loadSites();
+    await loadSites(true);
   };
 
-  const loadReviews = async () => {
-    setIsLoadingReviews(true);
+  // `silent` refreshes swap the data in place without flipping the page-level
+  // loading flag, which would otherwise replace the whole list with a spinner
+  // (and lose scroll position) after every checkbox click.
+  const loadReviews = async (silent = false) => {
+    if (!silent) setIsLoadingReviews(true);
     const { data } = await supabase.from("site_reviews").select("*");
-
-    const bySite: Record<string, SiteReview[]> = {};
-    ((data as SiteReview[]) || []).forEach((row) => {
-      const key = row.site_name.toLowerCase();
-      if (!bySite[key]) bySite[key] = [];
-      bySite[key].push(row);
-    });
-
-    const states: Record<string, SiteReviewState> = {};
-    const lastActivity: Record<string, SiteReview> = {};
-    for (const [key, rows] of Object.entries(bySite)) {
-      states[key] = computeSiteReviewState(rows);
-      const relevant = rows.filter((r) => REVIEW_CHECKLIST_ITEMS.includes(r.checklist_item));
-      if (relevant.length > 0) {
-        lastActivity[key] = relevant.sort(
-          (a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime()
-        )[0];
-      }
-    }
-
-    setReviewStateBySite(states);
-    setLastActivityBySite(lastActivity);
+    setReviewRows((data as SiteReview[]) || []);
     setIsLoadingReviews(false);
   };
 
@@ -239,8 +244,31 @@ export default function SiteReviewsClient() {
     const key = site.name.toLowerCase();
     const isChecked = isItemChecked(site, item);
     const togglingKey = `${key}|${item}`;
+    if (togglingItem === togglingKey) return;
     setTogglingItem(togglingKey);
     setToggleError(null);
+
+    // Optimistic: flip the checkbox immediately, roll back if the save fails.
+    const previousRows = reviewRows;
+    const matchesItem = (r: SiteReview) =>
+      r.site_name.toLowerCase() === key && r.checklist_item === item;
+    const checkedAt = new Date().toISOString();
+    setReviewRows((rows) =>
+      isChecked
+        ? rows.filter((r) => !matchesItem(r))
+        : [
+            ...rows.filter((r) => !matchesItem(r)),
+            {
+              id: -Date.now(),
+              site_name: site.name,
+              site_domain: site.domain,
+              checklist_item: item,
+              checked_by_name: name || "Unknown Operator",
+              checked_by_email: email || "",
+              checked_at: checkedAt,
+            },
+          ]
+    );
 
     const { error } = isChecked
       ? await supabase
@@ -255,18 +283,15 @@ export default function SiteReviewsClient() {
             checklist_item: item,
             checked_by_name: name || "Unknown Operator",
             checked_by_email: email || "",
-            checked_at: new Date().toISOString(),
+            checked_at: checkedAt,
           },
           { onConflict: "site_name,checklist_item" }
         );
 
     if (error) {
+      setReviewRows(previousRows);
       setToggleError(`Couldn't save "${item}" for "${site.name}": ${error.message}`);
-      setTogglingItem(null);
-      return;
     }
-
-    await loadReviews();
     setTogglingItem(null);
   };
 
@@ -547,9 +572,8 @@ export default function SiteReviewsClient() {
                           <input
                             type="checkbox"
                             checked={itemChecked}
-                            disabled={isToggling}
                             onChange={() => toggleChecklistItem(site, item)}
-                            className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
+                            className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                           />
                           <span
                             className={`text-sm flex-1 ${
