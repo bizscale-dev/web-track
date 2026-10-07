@@ -317,7 +317,8 @@ export async function dispatchCompletionNotification(websiteId: number, reqTitle
       user_email: user.email,
       message: `${supportName} has checked off a requirement ("${reqTitle}") for ${siteName}`,
       link_url: `/websites/${websiteId}`,
-      is_read: false
+      is_read: false,
+      source: 'requirement_completed',
     }));
 
     if (notifications.length > 0) {
@@ -327,6 +328,43 @@ export async function dispatchCompletionNotification(websiteId: number, reqTitle
     return { success: true };
   } catch (error: any) {
     console.error("Notification dispatch failed:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function dispatchWebsiteEditNotification(tabId: string, tabTitle: string, authorName: string, authorEmail: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) return { success: false, error: 'Missing keys' };
+
+  const adminDb = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+
+  try {
+    const { data: team } = await adminDb.from('team_members').select('email, role');
+    if (!team) return { success: false, error: 'No team found' };
+
+    // Same audience as the Website Edits page itself — everyone who'd act on
+    // a new edit request, minus whoever just added it.
+    const targetUsers = team.filter(
+      (t) => ['admin', 'manager', 'developer'].includes(t.role.toLowerCase()) && t.email !== authorEmail
+    );
+
+    const notifications = targetUsers.map((user) => ({
+      user_email: user.email,
+      message: `${authorName} added a new edit request for "${tabTitle}"`,
+      link_url: `/website-edits?tab=${encodeURIComponent(tabId)}`,
+      is_read: false,
+      source: 'website_edit',
+    }));
+
+    if (notifications.length > 0) {
+      await adminDb.from('user_notifications').insert(notifications);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Website edit notification dispatch failed:", error);
     return { success: false, error: error.message };
   }
 }

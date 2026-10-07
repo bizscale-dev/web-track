@@ -20,6 +20,8 @@ import {
   ListChecks,
   LogOut,
   User as UserIcon,
+  Bug,
+  BarChart3,
 } from "lucide-react";
 
 type NavItem = {
@@ -38,16 +40,63 @@ export default function NavDrawer() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [hasTaskNotification, setHasTaskNotification] = useState(false);
+  const [hasBugNotification, setHasBugNotification] = useState(false);
+  const [hasEditNotification, setHasEditNotification] = useState(false);
 
   useEffect(() => {
     if (!email || role === "user" || !role) return;
     (async () => {
-      const query = supabase.from("assigned_tasks").select("id", { count: "exact", head: true });
-      const { count } =
-        role === "admin"
-          ? await query.eq("assigned_by_email", email).eq("status", "completed").eq("admin_seen", false)
-          : await query.eq("assigned_to_email", email).eq("assignee_seen", false);
-      setHasTaskNotification((count || 0) > 0);
+      let taskCount = 0;
+      if (role === "admin") {
+        const { count } = await supabase
+          .from("assigned_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("assigned_by_email", email)
+          .eq("status", "completed")
+          .eq("admin_seen", false);
+        taskCount = count || 0;
+      } else if (role === "manager") {
+        // Managers also need a ping for reassigned tasks awaiting their
+        // approval — those aren't "assigned to" the manager, so the plain
+        // assignee_seen check below would otherwise miss them entirely.
+        const [assigneeResult, approvalResult] = await Promise.all([
+          supabase
+            .from("assigned_tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("assigned_to_email", email)
+            .eq("assignee_seen", false),
+          supabase
+            .from("assigned_tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("reassigned_by_email", email)
+            .eq("status", "completed")
+            .eq("manager_approval", "pending"),
+        ]);
+        taskCount = (assigneeResult.count || 0) + (approvalResult.count || 0);
+      } else {
+        const { count } = await supabase
+          .from("assigned_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("assigned_to_email", email)
+          .eq("assignee_seen", false);
+        taskCount = count || 0;
+      }
+      setHasTaskNotification(taskCount > 0);
+
+      const { count: bugCount } = await supabase
+        .from("production_bugs")
+        .select("id", { count: "exact", head: true })
+        .eq("developer_email", email)
+        .eq("developer_seen", false);
+      setHasBugNotification((bugCount || 0) > 0);
+
+      const { count: editCount } = await supabase
+        .from("user_notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_email", email)
+        .eq("source", "website_edit")
+        .eq("is_read", false);
+      setHasEditNotification((editCount || 0) > 0);
     })();
   }, [role, email]);
 
@@ -111,6 +160,7 @@ export default function NavDrawer() {
       icon: FileEdit,
       show: isDevManagerAdmin,
       color: "bg-violet-50 text-violet-600 border-violet-200",
+      badge: hasEditNotification,
     },
     {
       href: "/requirements",
@@ -140,6 +190,21 @@ export default function NavDrawer() {
       show: isManagerOrAdmin || isHr,
       color: "bg-teal-50 text-teal-600 border-teal-200",
     },
+    {
+      href: "/production-bugs",
+      label: "Production Bugs",
+      icon: Bug,
+      show: true,
+      color: "bg-rose-50 text-rose-600 border-rose-200",
+      badge: hasBugNotification,
+    },
+    {
+      href: "/kpis",
+      label: "KPIs",
+      icon: BarChart3,
+      show: isManagerOrAdmin || isHr,
+      color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    },
   ].filter((item) => item.show);
 
   const handleLogout = async () => {
@@ -161,7 +226,7 @@ export default function NavDrawer() {
         aria-label="Open menu"
       >
         <Menu className="w-5 h-5" />
-        {hasTaskNotification && (
+        {(hasTaskNotification || hasBugNotification || hasEditNotification) && (
           <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-500 border-2 border-white rounded-full" />
         )}
       </button>

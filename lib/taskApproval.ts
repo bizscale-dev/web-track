@@ -23,13 +23,18 @@ export type ApprovalState = "auto_approved" | "pending_manager" | "pending_admin
 
 export function computeApprovalState(task: AssignedTask): ApprovalState | null {
   if (task.status !== "completed") return null;
-  if (!isLateCompletion(task)) return "auto_approved";
+
+  const needsManager = requiresManagerApproval(task);
+  // On-time completion only skips review when there's no manager in the
+  // chain — a reassigned task always needs its manager to vouch for the
+  // report's work, even if it came in on time.
+  if (!isLateCompletion(task) && !needsManager) return "auto_approved";
 
   if (task.manager_approval === "rejected" || task.admin_approval === "rejected") return "rejected";
   if (task.admin_approval === "approved" && (task.manager_approval === "approved" || task.manager_approval === "not_required")) {
     return "approved";
   }
-  if (requiresManagerApproval(task) && task.manager_approval === "pending") return "pending_manager";
+  if (needsManager && task.manager_approval === "pending") return "pending_manager";
   if (task.admin_approval === "pending") return "pending_admin";
   return "pending_manager";
 }

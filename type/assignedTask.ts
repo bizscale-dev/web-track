@@ -19,6 +19,7 @@ export type AssignedTask = {
   admin_seen: boolean;
   created_at: string;
   completed_at: string | null;
+  revision_count: number;
 
   // Manager reassignment — set when the manager who was the effective
   // assignee hands the task off to one of their own reports. Once set,

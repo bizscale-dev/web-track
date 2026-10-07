@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { calculateBusinessDuration, formatBusinessDuration } from "@/lib/businessTime";
@@ -14,6 +14,7 @@ import {
   computeApprovalState,
 } from "@/lib/taskApproval";
 import type { AssignedTask } from "@/type/assignedTask";
+import type { TaskRevision } from "@/type/taskRevision";
 import {
   Loader2,
   ShieldAlert,
@@ -33,6 +34,7 @@ import {
   ShieldCheck,
   XCircle,
   MessageSquareWarning,
+  RotateCcw,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
@@ -48,6 +50,11 @@ function daysAgo(dateStr: string): string {
 
 export default function TasksPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Deep link from KPIs ("view this task") — when present, show only that
+  // task regardless of which tab it'd normally fall under, since a manager
+  // viewing a revision they didn't assign has no tab that would surface it.
+  const highlightTaskId = searchParams.get("taskId") ? Number(searchParams.get("taskId")) : null;
   const { role, name, email, loading: authLoading } = useAuth();
   const canView = role !== "user" && !!role;
   const isAdmin = role === "admin";
@@ -64,6 +71,7 @@ export default function TasksPage() {
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
+  const [taskRevisions, setTaskRevisions] = useState<TaskRevision[]>([]);
 
   // Ticks once a minute so any in-progress elapsed-time display stays current
   // while the page is left open, without needing a real per-second timer.
@@ -93,6 +101,12 @@ export default function TasksPage() {
 
   const [decidingId, setDecidingId] = useState<number | null>(null);
 
+  const [revisingId, setRevisingId] = useState<number | null>(null);
+  const [revisionReasonDraft, setRevisionReasonDraft] = useState("");
+  const [revisionDueAtDraft, setRevisionDueAtDraft] = useState("");
+  const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
+  const [revisionError, setRevisionError] = useState<string | null>(null);
+
   // Admin never has tasks assigned to them, so they don't get a "mine" tab —
   // default them straight into tracking what they've handed out. Managers
   // both receive work and hand it off, so they keep "mine" as the default.
@@ -105,6 +119,7 @@ export default function TasksPage() {
     if (canView && email) {
       loadTasks();
       loadHolidays();
+      loadRevisions();
       markTasksSeen();
       if (canAssign) loadTeamMembers();
     }
@@ -142,10 +157,12 @@ export default function TasksPage() {
   }, []);
 
   // HR's tracker view is the grouped-by-person overview, not this
-  // assign/act-on-tasks page — send them there whichever way they arrived.
+  // assign/act-on-tasks page — send them there whichever way they arrived,
+  // unless they followed a shared task link from KPIs, in which case let
+  // them view that one task here (read-only, same as everything else HR sees).
   useEffect(() => {
-    if (isHr) router.replace("/tasks/overview");
-  }, [isHr, router]);
+    if (isHr && highlightTaskId === null) router.replace("/tasks/overview");
+  }, [isHr, highlightTaskId, router]);
 
   const loadTasks = async () => {
     setIsLoading(true);
@@ -171,6 +188,14 @@ export default function TasksPage() {
   const loadHolidays = async () => {
     const { data } = await supabase.from("company_holidays").select("date");
     if (data) setHolidays(new Set(data.map((h: { date: string }) => h.date)));
+  };
+
+  const loadRevisions = async () => {
+    const { data } = await supabase
+      .from("task_revisions")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setTaskRevisions((data as TaskRevision[]) || []);
   };
 
   const loadTeamMembers = async () => {
@@ -268,28 +293,47 @@ export default function TasksPage() {
 
     if (late) {
       update.late_reason = lateReasonDraft.trim();
-      update.manager_approval = hasManager ? "pending" : "not_required";
-      update.admin_approval = hasManager ? "not_required" : "pending";
+    }
+
+    if (hasManager) {
+      // Reassigned tasks always go through the manager first, even when
+      // delivered on time — only the manager can vouch for their report's
+      // work. Admin still gets the final say after that.
+      update.manager_approval = "pending";
+      update.admin_approval = "not_required";
+    } else if (late) {
+      update.manager_approval = "not_required";
+      update.admin_approval = "pending";
     } else {
-      // On-time completion auto-approves — no manual review needed.
-      update.manager_approval = hasManager ? "approved" : "not_required";
+      // On-time, never reassigned — no manager in the chain, so this
+      // auto-approves with no manual review needed.
+      update.manager_approval = "not_required";
       update.admin_approval = "approved";
       update.approved_at = now.toISOString();
     }
 
     const { error: updateError } = await supabase.from("assigned_tasks").update(update).eq("id", taskId);
 
-    setIsCompleting(false);
-
     if (updateError) {
+      setIsCompleting(false);
       setCompleteError(updateError.message);
       return;
     }
 
+    // Closes out the timing on whichever revision sent this task back, if any.
+    if (task.revision_count > 0) {
+      await supabase
+        .from("task_revisions")
+        .update({ resolved_at: now.toISOString() })
+        .eq("task_id", taskId)
+        .is("resolved_at", null);
+    }
+
+    setIsCompleting(false);
     setCompletingId(null);
     setCompletionNotesDraft("");
     setLateReasonDraft("");
-    await loadTasks();
+    await Promise.all([loadTasks(), loadRevisions()]);
   };
 
   const startReassigning = (task: AssignedTask) => {
@@ -378,7 +422,88 @@ export default function TasksPage() {
     }
   };
 
+  const startRevision = (task: AssignedTask) => {
+    setRevisingId(task.id);
+    setRevisionReasonDraft("");
+    // The old deadline belonged to the finished round — don't carry a
+    // stale/passed date into the new one; start blank (no deadline) and let
+    // the requester set a fresh one if this round needs one.
+    setRevisionDueAtDraft("");
+    setRevisionError(null);
+  };
+
+  // Sends a completed task back for rework — logs a permanent revision
+  // record (for per-person monthly KPIs) and reopens the task for whoever
+  // is currently the effective assignee, clearing its completion/approval
+  // state so it goes through a fresh review cycle once redone.
+  const submitRevision = async (taskId: number) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || !revisionReasonDraft.trim()) return;
+
+    setIsSubmittingRevision(true);
+    setRevisionError(null);
+
+    const { error: logError } = await supabase.from("task_revisions").insert({
+      task_id: task.id,
+      task_title: task.title,
+      assignee_name: effectiveAssigneeName(task),
+      assignee_email: effectiveAssigneeEmail(task),
+      requested_by_name: name || "Unknown Operator",
+      requested_by_email: email || "",
+      reason: revisionReasonDraft.trim(),
+    });
+
+    if (logError) {
+      setIsSubmittingRevision(false);
+      setRevisionError(logError.message);
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("assigned_tasks")
+      .update({
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        due_at: revisionDueAtDraft ? new Date(revisionDueAtDraft).toISOString() : null,
+        late_reason: null,
+        manager_approval: "not_required",
+        admin_approval: "not_required",
+        approved_at: null,
+        revision_count: task.revision_count + 1,
+        assignee_seen: false,
+      })
+      .eq("id", taskId);
+
+    setIsSubmittingRevision(false);
+
+    if (updateError) {
+      setRevisionError(updateError.message);
+      return;
+    }
+
+    setRevisingId(null);
+    setRevisionReasonDraft("");
+    setRevisionDueAtDraft("");
+    await Promise.all([loadTasks(), loadRevisions()]);
+  };
+
+  // Only the most recent revision per task matters for the live/final
+  // duration badge — older rounds are still in the log for KPIs, just not
+  // shown here.
+  const latestRevisionByTask = useMemo(() => {
+    const map: Record<number, TaskRevision> = {};
+    for (const r of taskRevisions) {
+      if (!map[r.task_id]) map[r.task_id] = r; // already sorted newest-first
+    }
+    return map;
+  }, [taskRevisions]);
+
   const filteredTasks = useMemo(() => {
+    if (highlightTaskId !== null) {
+      return tasks.filter((t) => t.id === highlightTaskId);
+    }
+
     const base =
       tab === "mine"
         ? tasks.filter((t) => effectiveAssigneeEmail(t) === email)
@@ -400,7 +525,7 @@ export default function TasksPage() {
     (t) => effectiveAssigneeEmail(t) === email && t.status !== "completed"
   ).length;
 
-  if (authLoading || isHr) {
+  if (authLoading || (isHr && highlightTaskId === null)) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
@@ -540,7 +665,19 @@ export default function TasksPage() {
         </div>
       )}
 
-      <div className="inline-flex rounded-2xl bg-slate-100/95 p-1 border border-slate-200/40 shadow-inner mb-6">
+      {highlightTaskId !== null && (
+        <div className="flex items-center justify-between gap-3 mb-6 px-4 py-2.5 rounded-xl bg-[var(--accent-light)] border border-[var(--accent)]/30 text-sm">
+          <span className="text-[var(--card-foreground)] font-medium">Viewing a single task shared from KPIs</span>
+          <Link
+            href={isHr ? "/tasks/overview" : "/tasks"}
+            className="font-bold text-[var(--accent)] hover:opacity-80 shrink-0"
+          >
+            {isHr ? "Back to Tasks Overview" : "View all tasks"}
+          </Link>
+        </div>
+      )}
+
+      <div className={`inline-flex rounded-2xl bg-slate-100/95 p-1 border border-slate-200/40 shadow-inner mb-6 ${highlightTaskId !== null ? "hidden" : ""}`}>
         {!isAdmin && !isHr && (
           <button
             type="button"
@@ -593,6 +730,7 @@ export default function TasksPage() {
             const isStartingThis = startingId === task.id;
             const isReassigningThis = reassigningId === task.id;
             const isDecidingThis = decidingId === task.id;
+            const isRevisingThis = revisingId === task.id;
 
             const wasReassigned = !!task.reassigned_to_email;
             const canReassign =
@@ -627,6 +765,19 @@ export default function TasksPage() {
             const lateByDuration = completedLate
               ? formatBusinessDuration(calculateBusinessDuration(new Date(task.due_at!), new Date(task.completed_at!), holidays))
               : null;
+
+            const latestRevision = latestRevisionByTask[task.id];
+            const revisionLiveDuration =
+              latestRevision && !latestRevision.resolved_at
+                ? formatBusinessDuration(calculateBusinessDuration(new Date(latestRevision.created_at), new Date(), holidays))
+                : null;
+            const revisionFinalDuration =
+              latestRevision && latestRevision.resolved_at
+                ? formatBusinessDuration(
+                    calculateBusinessDuration(new Date(latestRevision.created_at), new Date(latestRevision.resolved_at), holidays),
+                    true
+                  )
+                : null;
 
             const approvalState = computeApprovalState(task);
             const managerNeedsToDecide =
@@ -688,6 +839,11 @@ export default function TasksPage() {
                           Awaiting Admin Approval
                         </span>
                       )}
+                      {task.revision_count > 0 && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 flex items-center gap-1">
+                          <RotateCcw className="w-3 h-3" /> Revised {task.revision_count}x
+                        </span>
+                      )}
                       {task.title}
                     </p>
                     {task.description && (
@@ -736,6 +892,16 @@ export default function TasksPage() {
                       {lateByDuration && (
                         <span className="flex items-center gap-1 text-amber-600 font-semibold">
                           <AlertTriangle className="w-3 h-3" /> {lateByDuration} late
+                        </span>
+                      )}
+                      {revisionLiveDuration && (
+                        <span className="flex items-center gap-1 text-violet-600 font-semibold">
+                          <RotateCcw className="w-3 h-3" /> in revision {revisionLiveDuration}
+                        </span>
+                      )}
+                      {revisionFinalDuration && (
+                        <span className="flex items-center gap-1 text-violet-600 font-semibold">
+                          <RotateCcw className="w-3 h-3" /> revision took {revisionFinalDuration}
                         </span>
                       )}
                     </div>
@@ -788,6 +954,66 @@ export default function TasksPage() {
                       <MessageSquareWarning className="w-3 h-3" /> Reason for Missing Deadline
                     </p>
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.late_reason}</p>
+                  </div>
+                )}
+
+                {isCompleted && canAssign && !isRevisingThis && (
+                  <div className="mt-3 pt-3 border-t border-violet-100">
+                    <button
+                      type="button"
+                      onClick={() => startRevision(task)}
+                      className="text-sm font-bold text-violet-600 hover:text-violet-800 flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-4 h-4" /> Request Revision
+                    </button>
+                  </div>
+                )}
+
+                {isCompleted && canAssign && isRevisingThis && (
+                  <div className="mt-3 pt-3 border-t border-violet-100 space-y-2">
+                    <textarea
+                      value={revisionReasonDraft}
+                      onChange={(e) => setRevisionReasonDraft(e.target.value)}
+                      placeholder="What needs to be revised?"
+                      rows={2}
+                      autoFocus
+                      className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none bg-violet-50/40"
+                    />
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-700 mb-1.5">
+                        <CalendarClock className="w-3.5 h-3.5" /> New Deadline (optional)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={revisionDueAtDraft}
+                        onChange={(e) => setRevisionDueAtDraft(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-violet-50/40"
+                      />
+                    </div>
+                    {revisionError && <p className="text-xs font-bold text-rose-600">{revisionError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => submitRevision(task.id)}
+                        disabled={isSubmittingRevision || !revisionReasonDraft.trim()}
+                        className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-bold hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      >
+                        {isSubmittingRevision ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4" />
+                        )}
+                        Send Back for Revision
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRevisingId(null)}
+                        disabled={isSubmittingRevision}
+                        className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -914,7 +1140,9 @@ export default function TasksPage() {
                 {managerNeedsToDecide && (
                   <div className="mt-3 pt-3 border-t border-amber-100 space-y-2">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
-                      Review the reason above, then decide
+                      {task.late_reason
+                        ? "Review the reason above, then decide"
+                        : "Reassigned task completed — review and decide"}
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -971,7 +1199,11 @@ export default function TasksPage() {
           })}
           {filteredTasks.length === 0 && (
             <p className="text-sm text-gray-500 text-center py-10">
-              {tab === "mine" ? "No tasks assigned to you." : "No tasks here."}
+              {highlightTaskId !== null
+                ? "That task couldn't be found — it may have been deleted."
+                : tab === "mine"
+                ? "No tasks assigned to you."
+                : "No tasks here."}
             </p>
           )}
         </div>

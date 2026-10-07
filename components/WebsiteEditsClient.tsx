@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getWebsiteEditsTabs, appendToWebsiteEditsTab } from "@/app/websiteEditsActions";
+import { dispatchWebsiteEditNotification } from "@/app/actions";
 import type { WebsiteEditsBlock, WebsiteEditsRun, WebsiteEditsTab } from "@/type/websiteEdits";
 import {
   Loader2,
@@ -99,8 +101,10 @@ function Block({ block }: { block: WebsiteEditsBlock }) {
 }
 
 export default function WebsiteEditsClient() {
-  const { role, loading: authLoading } = useAuth();
+  const { role, name, email, loading: authLoading } = useAuth();
   const canView = role === "developer" || role === "manager" || role === "admin";
+  const searchParams = useSearchParams();
+  const linkedTabId = searchParams.get("tab");
 
   const [tabs, setTabs] = useState<WebsiteEditsTab[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -125,7 +129,11 @@ export default function WebsiteEditsClient() {
       if (data.length === 0) {
         setError("Could not load the Website Edits doc — check connectivity.");
       } else {
-        setActiveTabId((current) => current ?? data[0].id);
+        // A notification link (?tab=) takes priority over the plain
+        // "first tab" default, so clicking through actually lands you on
+        // the site the new entry was added for.
+        const preferredId = linkedTabId && data.some((t) => t.id === linkedTabId) ? linkedTabId : data[0].id;
+        setActiveTabId((current) => current ?? preferredId);
       }
       setTabs(data);
     } catch {
@@ -146,6 +154,7 @@ export default function WebsiteEditsClient() {
 
   const submitNewEntry = async () => {
     if (!activeTabId || !newEntryText.trim()) return;
+    const tabTitle = tabs.find((t) => t.id === activeTabId)?.title || "a site";
 
     setIsAddingEntry(true);
     setAddEntryError(null);
@@ -157,6 +166,10 @@ export default function WebsiteEditsClient() {
       setIsAddingEntry(false);
       return;
     }
+
+    // Best-effort — a notification failing shouldn't undo or block the save,
+    // which already succeeded.
+    dispatchWebsiteEditNotification(activeTabId, tabTitle, name || "Someone", email || "").catch(() => {});
 
     setNewEntryText("");
     setShowAddEntry(false);
