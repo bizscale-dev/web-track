@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell"; // Make sure this path matches your structure!
 import NavDrawer from "@/components/NavDrawer";
+import NotificationBanner from "@/components/NotificationBanner";
 
 export default function TopAuthBar() {
   const { role } = useAuth();
@@ -15,8 +16,9 @@ export default function TopAuthBar() {
   if (pathname === '/') return null;
 
   return (
-    <div className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] px-4 sm:px-8 py-3 flex items-center justify-between transition-all duration-500">
-      
+    <div className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] transition-all duration-500">
+      <div className="w-full px-4 sm:px-8 py-3 flex items-center justify-between">
+
       {/* Left Side: Clearance Status */}
       <div className="flex items-center gap-3">
         <div className={`flex items-center justify-center w-10 h-10 rounded-full border shadow-sm transition-colors ${
@@ -62,6 +64,9 @@ export default function TopAuthBar() {
           </div>
         )}
       </div>
+      </div>
+
+      {role !== "user" && <NotificationBanner />}
     </div>
   );
 }
