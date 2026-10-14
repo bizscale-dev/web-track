@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { dispatchTaskNotification } from "@/app/actions";
 import { useAuth } from "@/components/AuthProvider";
 import { calculateBusinessDuration, formatBusinessDuration } from "@/lib/businessTime";
 import {
@@ -222,18 +223,23 @@ export default function TasksPage() {
     setIsAssigning(true);
     setAssignError(null);
 
-    const { error: insertError } = await supabase.from("assigned_tasks").insert({
-      title: assignTitle.trim(),
-      description: assignDescription.trim() || null,
-      assigned_to_name: assignee.name,
-      assigned_to_email: assignee.email,
-      assigned_by_name: name || "Unknown Operator",
-      assigned_by_email: email || "",
-      status: "pending",
-      is_urgent: assignUrgent,
-      due_at: assignDueAt ? new Date(assignDueAt).toISOString() : null,
-      assignee_seen: false,
-    });
+    const trimmedTitle = assignTitle.trim();
+    const { data: inserted, error: insertError } = await supabase
+      .from("assigned_tasks")
+      .insert({
+        title: trimmedTitle,
+        description: assignDescription.trim() || null,
+        assigned_to_name: assignee.name,
+        assigned_to_email: assignee.email,
+        assigned_by_name: name || "Unknown Operator",
+        assigned_by_email: email || "",
+        status: "pending",
+        is_urgent: assignUrgent,
+        due_at: assignDueAt ? new Date(assignDueAt).toISOString() : null,
+        assignee_seen: false,
+      })
+      .select("id")
+      .single();
 
     setIsAssigning(false);
 
@@ -241,6 +247,13 @@ export default function TasksPage() {
       setAssignError(insertError.message);
       return;
     }
+
+    dispatchTaskNotification(
+      assignee.email,
+      `${name || "Someone"} assigned you a task: "${trimmedTitle}"`,
+      `/tasks?taskId=${inserted.id}`,
+      "task_assigned"
+    ).catch(() => {});
 
     setAssignTitle("");
     setAssignDescription("");
@@ -345,6 +358,7 @@ export default function TasksPage() {
   const submitReassign = async (taskId: number) => {
     const assignee = assignableMembers.find((m) => m.email === reassignToEmail);
     if (!assignee) return;
+    const task = tasks.find((t) => t.id === taskId);
 
     setIsReassigning(true);
     setReassignError(null);
@@ -369,6 +383,13 @@ export default function TasksPage() {
       setReassignError(updateError.message);
       return;
     }
+
+    dispatchTaskNotification(
+      assignee.email,
+      `${name || "Someone"} reassigned you a task: "${task?.title || "a task"}"`,
+      `/tasks?taskId=${taskId}`,
+      "task_assigned"
+    ).catch(() => {});
 
     setReassigningId(null);
     setReassignToEmail("");
@@ -481,6 +502,14 @@ export default function TasksPage() {
       setRevisionError(updateError.message);
       return;
     }
+
+    const revisionAssigneeEmail = effectiveAssigneeEmail(task);
+    dispatchTaskNotification(
+      revisionAssigneeEmail,
+      `${name || "Someone"} sent a task back for revision: "${task.title}"`,
+      `/tasks?taskId=${taskId}`,
+      "task_assigned"
+    ).catch(() => {});
 
     setRevisingId(null);
     setRevisionReasonDraft("");

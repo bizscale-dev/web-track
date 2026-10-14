@@ -368,3 +368,30 @@ export async function dispatchWebsiteEditNotification(tabId: string, tabTitle: s
     return { success: false, error: error.message };
   }
 }
+
+// Single-recipient notification for task assignment/reassignment/revision —
+// the NavDrawer's red dot already flags "something's new" via assignee_seen,
+// but gives no detail; this puts an actual message + link in the bell too.
+export async function dispatchTaskNotification(userEmail: string, message: string, linkUrl: string, source: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) return { success: false, error: 'Missing keys' };
+  if (!userEmail) return { success: false, error: 'No recipient email' };
+
+  const adminDb = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+
+  try {
+    await adminDb.from('user_notifications').insert({
+      user_email: userEmail,
+      message,
+      link_url: linkUrl,
+      is_read: false,
+      source,
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Task notification dispatch failed:", error);
+    return { success: false, error: error.message };
+  }
+}
