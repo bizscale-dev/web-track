@@ -36,6 +36,7 @@ import {
   XCircle,
   MessageSquareWarning,
   RotateCcw,
+  Eye,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
@@ -112,9 +113,9 @@ export default function TasksPage() {
   // Admin never has tasks assigned to them, so they don't get a "mine" tab —
   // default them straight into tracking what they've handed out. Managers
   // both receive work and hand it off, so they keep "mine" as the default.
-  // HR has no tasks of their own at all — it's a pure tracker, so they land
-  // straight on "all".
-  const tab: Tab = tabOverride ?? (isHr ? "all" : isAdmin ? "assigned" : "mine");
+  // HR and Designer have no tasks of their own at all — pure trackers, so
+  // they land straight on "all".
+  const tab: Tab = tabOverride ?? (isHr || isDesigner ? "all" : isAdmin ? "assigned" : "mine");
   const setTab = setTabOverride;
 
   useEffect(() => {
@@ -158,13 +159,16 @@ export default function TasksPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // HR and Designer get the grouped-by-person overview, not this
-  // assign/act-on-tasks page — send them there whichever way they arrived,
-  // unless they followed a shared task link from KPIs, in which case let
-  // them view that one task here (read-only, same as everything else they see).
+  // HR gets the grouped-by-person overview, not this assign/act-on-tasks
+  // page — send them there whichever way they arrived, unless they followed
+  // a shared task link from KPIs, in which case let them view that one task
+  // here (read-only, same as everything else HR sees). Designer stays on
+  // this page — they get the same "All" list admin sees, just with none of
+  // the action buttons (every button here is gated to the role or the task's
+  // own assignee, so Designer naturally never matches any of them).
   useEffect(() => {
-    if ((isHr || isDesigner) && highlightTaskId === null) router.replace("/tasks/overview");
-  }, [isHr, isDesigner, highlightTaskId, router]);
+    if (isHr && highlightTaskId === null) router.replace("/tasks/overview");
+  }, [isHr, highlightTaskId, router]);
 
   const loadTasks = async () => {
     setIsLoading(true);
@@ -555,7 +559,7 @@ export default function TasksPage() {
     (t) => effectiveAssigneeEmail(t) === email && t.status !== "completed"
   ).length;
 
-  if (authLoading || ((isHr || isDesigner) && highlightTaskId === null)) {
+  if (authLoading || (isHr && highlightTaskId === null)) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
@@ -588,9 +592,20 @@ export default function TasksPage() {
             <ClipboardCheck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">Tasks</h1>
+            <h1 className="text-3xl font-bold text-[var(--bg-foreground)] flex items-center gap-2.5 flex-wrap">
+              Tasks
+              {isDesigner && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                  <Eye className="w-3 h-3" /> View Only
+                </span>
+              )}
+            </h1>
             <p className="text-[var(--bg-muted)] text-sm mt-1">
-              {canAssign ? "Assign tasks and track completion notes" : isHr ? "Track every task and its approval status" : "Tasks assigned to you"}
+              {canAssign
+                ? "Assign tasks and track completion notes"
+                : isHr || isDesigner
+                ? "Track every task and its approval status"
+                : "Tasks assigned to you"}
             </p>
           </div>
         </div>
@@ -699,16 +714,16 @@ export default function TasksPage() {
         <div className="flex items-center justify-between gap-3 mb-6 px-4 py-2.5 rounded-xl bg-[var(--accent-light)] border border-[var(--accent)]/30 text-sm">
           <span className="text-[var(--card-foreground)] font-medium">Viewing a single task shared from KPIs</span>
           <Link
-            href={isHr || isDesigner ? "/tasks/overview" : "/tasks"}
+            href={isHr ? "/tasks/overview" : "/tasks"}
             className="font-bold text-[var(--accent)] hover:opacity-80 shrink-0"
           >
-            {isHr || isDesigner ? "Back to Tasks Overview" : "View all tasks"}
+            {isHr ? "Back to Tasks Overview" : "View all tasks"}
           </Link>
         </div>
       )}
 
       <div className={`inline-flex rounded-2xl bg-slate-100/95 p-1 border border-slate-200/40 shadow-inner mb-6 ${highlightTaskId !== null ? "hidden" : ""}`}>
-        {!isAdmin && !isHr && (
+        {!isAdmin && !isHr && !isDesigner && (
           <button
             type="button"
             onClick={() => setTab("mine")}
@@ -730,7 +745,7 @@ export default function TasksPage() {
             Assigned by Me
           </button>
         )}
-        {(isAdmin || isHr) && (
+        {(isAdmin || isHr || isDesigner) && (
           <button
             type="button"
             onClick={() => setTab("all")}

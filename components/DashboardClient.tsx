@@ -36,9 +36,11 @@ export default function DashboardClient({
 
   // HR and Designer aren't website trackers — send them straight to their
   // read-only tracker view instead, whether they land here right after
-  // login or navigate here directly.
+  // login or navigate here directly. HR gets the grouped-by-person
+  // overview; Designer gets the same all-tasks list admin sees.
   useEffect(() => {
-    if (role === "hr" || role === "designer") router.replace("/tasks/overview");
+    if (role === "hr") router.replace("/tasks/overview");
+    if (role === "designer") router.replace("/tasks");
   }, [role, router]);
   
   const [updatingWebsiteIds, setUpdatingWebsiteIds] = useState<number[]>([]);

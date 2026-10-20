@@ -116,9 +116,11 @@ export default function NavDrawer() {
 
   if (role === "user" || !role) return null;
 
-  // HR and Designer get a pure tracker view — Designer sees Tasks Overview
-  // only (read-only, no edit/delete anywhere); HR also keeps EOD Overview.
-  // Neither owns websites, submits EOD, or assigns work.
+  // HR and Designer get a pure tracker view — neither owns websites,
+  // submits EOD, or assigns work. HR gets the grouped-by-person Tasks
+  // Overview plus EOD Overview; Designer gets the same all-tasks list
+  // admin sees on /tasks, just with every action button naturally hidden
+  // (they're all gated to the role or the task's own assignee).
   const isHr = role === "hr";
   const isDesigner = role === "designer";
   const isViewOnly = isHr || isDesigner;
@@ -143,8 +145,8 @@ export default function NavDrawer() {
       disabledHint: "Manager clearance required",
     },
     {
-      href: isViewOnly ? "/tasks/overview" : "/tasks",
-      label: isViewOnly ? "Tasks Overview" : "Tasks",
+      href: isHr ? "/tasks/overview" : "/tasks",
+      label: isHr ? "Tasks Overview" : "Tasks",
       icon: ClipboardCheck,
       show: true,
       color: "bg-sky-50 text-sky-600 border-sky-200",

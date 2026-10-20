@@ -28,7 +28,6 @@ import {
   MessageSquareWarning,
   User as UserIcon,
   ListChecks,
-  Eye,
   ClipboardList,
 } from "lucide-react";
 
@@ -49,7 +48,7 @@ type PersonGroup = {
 
 export default function TasksOverviewPage() {
   const { role, loading: authLoading } = useAuth();
-  const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
+  const canView = role === "admin" || role === "manager" || role === "hr";
 
   const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -134,7 +133,7 @@ export default function TasksOverviewPage() {
       <div className="p-10 max-w-2xl mx-auto text-center mt-20 bg-rose-50 border border-rose-100 rounded-2xl">
         <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Clearance Required</h1>
-        <p className="text-gray-600">Only Admin, Manager, HR, and Designer can view the Tasks overview.</p>
+        <p className="text-gray-600">Only Admin, Manager, and HR can view the Tasks overview.</p>
       </div>
     );
   }
@@ -163,14 +162,7 @@ export default function TasksOverviewPage() {
             <ClipboardCheck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-[var(--bg-foreground)] flex items-center gap-2.5 flex-wrap">
-              Tasks Overview
-              {role === "designer" && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                  <Eye className="w-3 h-3" /> View Only
-                </span>
-              )}
-            </h1>
+            <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">Tasks Overview</h1>
             <p className="text-[var(--bg-muted)] text-sm mt-1">Every person&apos;s tasks, status, and approval — in one place.</p>
           </div>
         </div>
