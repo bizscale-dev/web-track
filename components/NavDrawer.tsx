@@ -116,9 +116,12 @@ export default function NavDrawer() {
 
   if (role === "user" || !role) return null;
 
-  // HR gets a pure tracker view — Tasks + EOD Overview only, none of the
-  // operational nav (they don't own websites, submit EOD, or assign work).
+  // HR and Designer get a pure tracker view — Designer sees Tasks Overview
+  // only (read-only, no edit/delete anywhere); HR also keeps EOD Overview.
+  // Neither owns websites, submits EOD, or assigns work.
   const isHr = role === "hr";
+  const isDesigner = role === "designer";
+  const isViewOnly = isHr || isDesigner;
   const isManagerOrAdmin = role === "admin" || role === "manager";
   const isDevManagerAdmin = role === "developer" || role === "manager" || role === "admin";
 
@@ -127,21 +130,21 @@ export default function NavDrawer() {
       href: "/dashboard",
       label: "Dashboard",
       icon: Home,
-      show: !isHr,
+      show: !isViewOnly,
       color: "bg-slate-100 text-slate-700 border-slate-200",
     },
     {
       href: "/websites/new",
       label: "Add Website",
       icon: Globe,
-      show: !isHr,
+      show: !isViewOnly,
       color: "bg-blue-50 text-blue-600 border-blue-200",
       disabled: !isManagerOrAdmin,
       disabledHint: "Manager clearance required",
     },
     {
-      href: isHr ? "/tasks/overview" : "/tasks",
-      label: isHr ? "Tasks Overview" : "Tasks",
+      href: isViewOnly ? "/tasks/overview" : "/tasks",
+      label: isViewOnly ? "Tasks Overview" : "Tasks",
       icon: ClipboardCheck,
       show: true,
       color: "bg-sky-50 text-sky-600 border-sky-200",
@@ -194,7 +197,7 @@ export default function NavDrawer() {
       href: "/production-bugs",
       label: "Production Bugs",
       icon: Bug,
-      show: true,
+      show: !isDesigner,
       color: "bg-rose-50 text-rose-600 border-rose-200",
       badge: hasBugNotification,
     },

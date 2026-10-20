@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Settings, User as UserIcon, X, FileText, Globe, AlertTriangle, Loader2 } from "lucide-react";
+import { Search, Sparkles, Settings, User as UserIcon, X, FileText, Globe, AlertTriangle, Loader2, Copy, CheckCircle2 } from "lucide-react";
 import DashboardStats from "./DashboardStats";
 import WebsiteCard from "./WebsiteCard";
 import UserProfileSettings from "./UserProfileSettings";
@@ -34,10 +34,11 @@ export default function DashboardClient({
     setWebsites(initialData || []);
   }, [initialData]);
 
-  // HR isn't a website tracker — send them straight to their tracker view
-  // instead, whether they land here right after login or navigate here directly.
+  // HR and Designer aren't website trackers — send them straight to their
+  // read-only tracker view instead, whether they land here right after
+  // login or navigate here directly.
   useEffect(() => {
-    if (role === "hr") router.replace("/tasks/overview");
+    if (role === "hr" || role === "designer") router.replace("/tasks/overview");
   }, [role, router]);
   
   const [updatingWebsiteIds, setUpdatingWebsiteIds] = useState<number[]>([]);
@@ -65,6 +66,14 @@ export default function DashboardClient({
     websiteName: "",
     isSaving: false,
     error: "",
+  });
+
+  // Just a copyable reminder for whoever just finished the site — not fed
+  // into the status change or the n8n webhook, purely local.
+  const [completedReminderModal, setCompletedReminderModal] = useState({
+    isOpen: false,
+    websiteName: "",
+    copied: false,
   });
 
   const filteredWebsites = useMemo(() => {
@@ -146,6 +155,16 @@ export default function DashboardClient({
     }
 
     executeStatusChange(websiteId, nextStatus);
+
+    // Reminder only — the status change itself already ran above, this just
+    // surfaces a ready-to-copy message for whoever needs to ping Support.
+    if (nextStatus === "Completed") {
+      setCompletedReminderModal({
+        isOpen: true,
+        websiteName: currentWebsite.website_name,
+        copied: false,
+      });
+    }
   }
 
   async function confirmSeoModal() {
@@ -177,6 +196,18 @@ export default function DashboardClient({
 
     setSeoModal((current) => ({ ...current, isOpen: false, isSaving: false }));
     executeStatusChange(websiteId, nextStatus, message.trim(), domainChanged ? trimmedDomain : undefined);
+  }
+
+  const completedReminderMessage = `${completedReminderModal.websiteName} has been completed, ask support if we need to do basic seo or complete seo.`;
+
+  async function copyCompletedReminderMessage() {
+    try {
+      await navigator.clipboard.writeText(completedReminderMessage);
+      setCompletedReminderModal((current) => ({ ...current, copied: true }));
+    } catch {
+      // Clipboard API can fail (permissions, non-secure context) — the
+      // message is still visible and selectable in the modal regardless.
+    }
   }
 
   async function executeStatusChange(websiteId: number, nextStatus: string, customNotes?: string, domainOverride?: string) {
@@ -263,7 +294,7 @@ export default function DashboardClient({
     }
   }
 
-  if (role === "hr") {
+  if (role === "hr" || role === "designer") {
     return (
       <div className="flex justify-center py-24">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
@@ -541,6 +572,55 @@ export default function DashboardClient({
                   className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition-all"
                 >
                   {seoModal.isSaving ? "Saving..." : "Confirm & Send to SEO"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {completedReminderModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 transition-opacity">
+          <div className="bg-[var(--card)] rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                <h3 className="font-black text-lg text-[var(--card-foreground)]">Site Completed — SEO Reminder</h3>
+              </div>
+              <button
+                onClick={() => setCompletedReminderModal({ ...completedReminderModal, isOpen: false })}
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-[var(--card-muted)] mb-3">
+                Don&apos;t forget to ask Support which SEO option this site needs. Copy the message below:
+              </p>
+              <p className="text-sm text-[var(--card-foreground)] bg-slate-50 border border-slate-200 p-3 rounded-xl whitespace-pre-wrap">
+                {completedReminderMessage}
+              </p>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setCompletedReminderModal({ ...completedReminderModal, isOpen: false })}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={copyCompletedReminderMessage}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-[var(--button-text)] bg-[var(--button)] hover:bg-[var(--button-hover)] shadow-sm transition-all flex items-center gap-2"
+                >
+                  {completedReminderModal.copied ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" /> Copy Message
+                    </>
+                  )}
                 </button>
               </div>
             </div>

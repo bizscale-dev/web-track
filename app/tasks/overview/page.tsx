@@ -28,6 +28,8 @@ import {
   MessageSquareWarning,
   User as UserIcon,
   ListChecks,
+  Eye,
+  ClipboardList,
 } from "lucide-react";
 
 type DateFilter = "today" | "week" | "all";
@@ -47,7 +49,7 @@ type PersonGroup = {
 
 export default function TasksOverviewPage() {
   const { role, loading: authLoading } = useAuth();
-  const canView = role === "admin" || role === "manager" || role === "hr";
+  const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
 
   const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,6 +110,17 @@ export default function TasksOverviewPage() {
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredTasks]);
 
+  // Company-wide counters for the summary strip — gives whoever's looking
+  // (especially a view-only Designer) the big picture before drilling into
+  // any one person's row.
+  const summary = useMemo(() => {
+    const total = filteredTasks.length;
+    const completed = filteredTasks.filter((t) => t.status === "completed").length;
+    const inProgress = filteredTasks.filter((t) => t.status === "in_progress").length;
+    const notStarted = total - completed - inProgress;
+    return { total, completed, inProgress, notStarted };
+  }, [filteredTasks]);
+
   if (authLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -121,7 +134,7 @@ export default function TasksOverviewPage() {
       <div className="p-10 max-w-2xl mx-auto text-center mt-20 bg-rose-50 border border-rose-100 rounded-2xl">
         <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Clearance Required</h1>
-        <p className="text-gray-600">Only Admin, Manager, and HR can view the Tasks overview.</p>
+        <p className="text-gray-600">Only Admin, Manager, HR, and Designer can view the Tasks overview.</p>
       </div>
     );
   }
@@ -144,13 +157,20 @@ export default function TasksOverviewPage() {
         </Link>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-sky-600 text-white rounded-xl shadow-sm">
             <ClipboardCheck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">Tasks Overview</h1>
+            <h1 className="text-3xl font-bold text-[var(--bg-foreground)] flex items-center gap-2.5 flex-wrap">
+              Tasks Overview
+              {role === "designer" && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                  <Eye className="w-3 h-3" /> View Only
+                </span>
+              )}
+            </h1>
             <p className="text-[var(--bg-muted)] text-sm mt-1">Every person&apos;s tasks, status, and approval — in one place.</p>
           </div>
         </div>
@@ -171,6 +191,47 @@ export default function TasksOverviewPage() {
           ))}
         </div>
       </div>
+
+      {!isLoading && groupedByPerson.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 text-slate-600 shrink-0">
+              <ClipboardList className="w-4 h-4" />
+            </span>
+            <div>
+              <p className="text-xl font-black text-[var(--card-foreground)] leading-none">{summary.total}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-0.5">Total</p>
+            </div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </span>
+            <div>
+              <p className="text-xl font-black text-[var(--card-foreground)] leading-none">{summary.completed}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-0.5">Completed</p>
+            </div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+              <Timer className="w-4 h-4" />
+            </span>
+            <div>
+              <p className="text-xl font-black text-[var(--card-foreground)] leading-none">{summary.inProgress}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-0.5">In Progress</p>
+            </div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-50 text-amber-600 shrink-0">
+              <Clock className="w-4 h-4" />
+            </span>
+            <div>
+              <p className="text-xl font-black text-[var(--card-foreground)] leading-none">{summary.notStarted}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-0.5">Not Started</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-20">
