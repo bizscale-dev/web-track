@@ -49,7 +49,7 @@ type PersonKpi = {
 
 export default function KpisPage() {
   const { role, loading: authLoading } = useAuth();
-  const canView = role === "admin" || role === "manager" || role === "hr";
+  const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
 
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);

@@ -159,16 +159,13 @@ export default function TasksPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // HR gets the grouped-by-person overview, not this assign/act-on-tasks
-  // page — send them there whichever way they arrived, unless they followed
-  // a shared task link from KPIs, in which case let them view that one task
-  // here (read-only, same as everything else HR sees). Designer stays on
-  // this page — they get the same "All" list admin sees, just with none of
-  // the action buttons (every button here is gated to the role or the task's
-  // own assignee, so Designer naturally never matches any of them).
+  // HR and Designer get the grouped-by-person overview, not this
+  // assign/act-on-tasks page — send them there whichever way they arrived,
+  // unless they followed a shared task link from KPIs, in which case let
+  // them view that one task here (read-only, same as everything else they see).
   useEffect(() => {
-    if (isHr && highlightTaskId === null) router.replace("/tasks/overview");
-  }, [isHr, highlightTaskId, router]);
+    if ((isHr || isDesigner) && highlightTaskId === null) router.replace("/tasks/overview");
+  }, [isHr, isDesigner, highlightTaskId, router]);
 
   const loadTasks = async () => {
     setIsLoading(true);
@@ -559,7 +556,7 @@ export default function TasksPage() {
     (t) => effectiveAssigneeEmail(t) === email && t.status !== "completed"
   ).length;
 
-  if (authLoading || (isHr && highlightTaskId === null)) {
+  if (authLoading || ((isHr || isDesigner) && highlightTaskId === null)) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
@@ -714,10 +711,10 @@ export default function TasksPage() {
         <div className="flex items-center justify-between gap-3 mb-6 px-4 py-2.5 rounded-xl bg-[var(--accent-light)] border border-[var(--accent)]/30 text-sm">
           <span className="text-[var(--card-foreground)] font-medium">Viewing a single task shared from KPIs</span>
           <Link
-            href={isHr ? "/tasks/overview" : "/tasks"}
+            href={isHr || isDesigner ? "/tasks/overview" : "/tasks"}
             className="font-bold text-[var(--accent)] hover:opacity-80 shrink-0"
           >
-            {isHr ? "Back to Tasks Overview" : "View all tasks"}
+            {isHr || isDesigner ? "Back to Tasks Overview" : "View all tasks"}
           </Link>
         </div>
       )}

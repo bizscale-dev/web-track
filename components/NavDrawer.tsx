@@ -116,11 +116,9 @@ export default function NavDrawer() {
 
   if (role === "user" || !role) return null;
 
-  // HR and Designer get a pure tracker view — neither owns websites,
-  // submits EOD, or assigns work. HR gets the grouped-by-person Tasks
-  // Overview plus EOD Overview; Designer gets the same all-tasks list
-  // admin sees on /tasks, just with every action button naturally hidden
-  // (they're all gated to the role or the task's own assignee).
+  // HR and Designer share the exact same pure-tracker view — neither owns
+  // websites, submits EOD, or assigns work. Both get Tasks Overview, EOD
+  // Overview, Production Bugs, and KPIs; nothing operational.
   const isHr = role === "hr";
   const isDesigner = role === "designer";
   const isViewOnly = isHr || isDesigner;
@@ -145,8 +143,8 @@ export default function NavDrawer() {
       disabledHint: "Manager clearance required",
     },
     {
-      href: isHr ? "/tasks/overview" : "/tasks",
-      label: isHr ? "Tasks Overview" : "Tasks",
+      href: isViewOnly ? "/tasks/overview" : "/tasks",
+      label: isViewOnly ? "Tasks Overview" : "Tasks",
       icon: ClipboardCheck,
       show: true,
       color: "bg-sky-50 text-sky-600 border-sky-200",
@@ -192,14 +190,14 @@ export default function NavDrawer() {
       href: "/eod/overview",
       label: "EOD Overview",
       icon: ListChecks,
-      show: isManagerOrAdmin || isHr,
+      show: isManagerOrAdmin || isViewOnly,
       color: "bg-teal-50 text-teal-600 border-teal-200",
     },
     {
       href: "/production-bugs",
       label: "Production Bugs",
       icon: Bug,
-      show: !isDesigner,
+      show: true,
       color: "bg-rose-50 text-rose-600 border-rose-200",
       badge: hasBugNotification,
     },
@@ -207,7 +205,7 @@ export default function NavDrawer() {
       href: "/kpis",
       label: "KPIs",
       icon: BarChart3,
-      show: isManagerOrAdmin || isHr,
+      show: isManagerOrAdmin || isViewOnly,
       color: "bg-emerald-50 text-emerald-600 border-emerald-200",
     },
   ].filter((item) => item.show);

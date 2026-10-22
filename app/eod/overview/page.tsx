@@ -28,7 +28,7 @@ function isWithinDays(dateStr: string, days: number) {
 
 export default function EodOverviewPage() {
   const { role, loading: authLoading } = useAuth();
-  const canView = role === "admin" || role === "manager" || role === "hr";
+  const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
 
   const [reports, setReports] = useState<EodReportWithEntries[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,14 +91,14 @@ export default function EodOverviewPage() {
       <div className="p-10 max-w-2xl mx-auto text-center mt-20 bg-rose-50 border border-rose-100 rounded-2xl">
         <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Clearance Required</h1>
-        <p className="text-gray-600">Only Admin, Manager, and HR can view the EOD overview.</p>
+        <p className="text-gray-600">Only Admin, Manager, HR, and Designer can view the EOD overview.</p>
       </div>
     );
   }
 
   return (
     <main className="p-4 sm:p-8 max-w-5xl mx-auto w-full">
-      {role === "hr" ? (
+      {role === "hr" || role === "designer" ? (
         <Link
           href="/tasks/overview"
           className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
