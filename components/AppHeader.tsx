@@ -28,32 +28,40 @@ export default function AppHeader() {
 
   return (
     <div className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] transition-all duration-500">
-      <div className="w-full px-4 sm:px-8 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          {role !== "user" && collapsed && (
-            <button
-              type="button"
-              onClick={toggle}
-              title="Show sidebar"
-              aria-label="Show sidebar"
-              className="hidden lg:flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-colors shrink-0"
-            >
-              <Boxes className="w-[18px] h-[18px]" />
-            </button>
-          )}
+      <div className="w-full px-4 sm:px-8 py-3 flex items-stretch justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3">
+            {role !== "user" && collapsed && (
+              <button
+                type="button"
+                onClick={toggle}
+                title="Show sidebar"
+                aria-label="Show sidebar"
+                className="hidden lg:flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-colors shrink-0"
+              >
+                <Boxes className="w-[18px] h-[18px]" />
+              </button>
+            )}
+            {role !== "user" && (
+              <div className="relative hidden sm:block w-full max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitSearch();
+                  }}
+                  placeholder="Search websites..."
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-colors"
+                />
+              </div>
+            )}
+          </div>
+
           {role !== "user" && (
-            <div className="relative hidden sm:block w-full max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitSearch();
-                }}
-                placeholder="Search websites..."
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-colors"
-              />
+            <div className="mt-2">
+              <RouteBreadcrumb />
             </div>
           )}
         </div>
@@ -91,12 +99,6 @@ export default function AppHeader() {
           )}
         </div>
       </div>
-
-      {role !== "user" && (
-        <div className="px-4 sm:px-8 pb-3">
-          <RouteBreadcrumb />
-        </div>
-      )}
 
       {role !== "user" && <NotificationBanner />}
     </div>
