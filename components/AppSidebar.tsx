@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { useNavItems } from "./useNavItems";
 import { Boxes, Lock, LogOut } from "lucide-react";
+
+const COLLAPSED_KEY = "website-crm-sidebar-collapsed";
 
 // Persistent desktop nav (hidden lg:flex) — the reference image's dark
 // sidebar look. NavDrawer still handles mobile with the same items via
@@ -14,6 +17,27 @@ export default function AppSidebar() {
   const { role } = useAuth();
   const pathname = usePathname();
   const { items } = useNavItems();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "1");
+    } catch {
+      // Private browsing / blocked storage — just stay expanded.
+    }
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        // Nothing to persist to — the in-memory toggle still works this session.
+      }
+      return next;
+    });
+  };
 
   // THE INTERCEPTOR: Hide the sidebar entirely on the login page, even for
   // an already-authenticated session that hasn't redirected yet.
@@ -28,14 +52,35 @@ export default function AppSidebar() {
     window.location.href = "/";
   };
 
+  if (collapsed) {
+    return (
+      <div className="hidden lg:block lg:shrink-0">
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title="Show sidebar"
+          aria-label="Show sidebar"
+          className="fixed top-4 left-4 z-[110] flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors"
+        >
+          <Boxes className="w-[18px] h-[18px]" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 lg:h-screen lg:sticky lg:top-0 bg-slate-950 text-slate-300 border-r border-slate-800">
-      <div className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-800/80 shrink-0">
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        title="Hide sidebar"
+        className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-800/80 shrink-0 text-left hover:bg-slate-900/60 transition-colors"
+      >
         <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 text-white shrink-0">
           <Boxes className="w-[18px] h-[18px]" />
         </span>
         <span className="text-base font-black text-white tracking-tight">Bizscale</span>
-      </div>
+      </button>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {items.map((item) => {
