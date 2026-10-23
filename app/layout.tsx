@@ -26,12 +26,10 @@ export default function RootLayout({
             <div className="absolute -top-20 left-[-5rem] h-64 w-64 rounded-full bg-[var(--accent)]/10 blur-3xl" />
             <div className="absolute top-44 right-[-5rem] h-72 w-72 rounded-full bg-[var(--button)]/10 blur-3xl" />
           </div>
-          <div className="relative z-10 flex min-h-screen">
-            <AppSidebar />
-            <div className="flex min-h-screen flex-1 flex-col min-w-0">
-              <AppHeader />
-              {children}
-            </div>
+          <AppSidebar />
+          <div className="relative z-10 flex min-h-screen w-full flex-col min-w-0">
+            <AppHeader />
+            {children}
           </div>
           <BatmanThemeToggle />
         </AuthProvider>

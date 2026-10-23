@@ -52,24 +52,29 @@ export default function AppSidebar() {
     window.location.href = "/";
   };
 
-  if (collapsed) {
-    return (
-      <div className="hidden lg:block lg:shrink-0">
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          title="Show sidebar"
-          aria-label="Show sidebar"
-          className="fixed top-4 left-4 z-[110] flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors"
-        >
-          <Boxes className="w-[18px] h-[18px]" />
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 lg:h-screen lg:sticky lg:top-0 bg-slate-950 text-slate-300 border-r border-slate-800">
+    <>
+      {/* Floating re-open button — fades in once the panel below has
+          slid off-screen. */}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        title="Show sidebar"
+        aria-label="Show sidebar"
+        className={`hidden lg:flex fixed top-4 left-4 z-[109] items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-opacity duration-200 ${
+          collapsed ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        <Boxes className="w-[18px] h-[18px]" />
+      </button>
+
+      {/* Fixed overlay — sits on top of the header and page content instead
+          of pushing them over, so the content column is always full width. */}
+      <aside
+        className={`hidden lg:flex lg:flex-col fixed inset-y-0 left-0 z-[110] w-64 bg-slate-950 text-slate-300 border-r border-slate-800 shadow-2xl transition-transform duration-200 ease-out ${
+          collapsed ? "-translate-x-full" : "translate-x-0"
+        }`}
+      >
       <button
         type="button"
         onClick={toggleCollapsed}
@@ -128,6 +133,7 @@ export default function AppSidebar() {
           <span className="text-sm font-bold">Drop Access</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
