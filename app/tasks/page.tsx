@@ -810,11 +810,11 @@ export default function TasksPage() {
       <main className="max-w-[1600px] mx-auto w-full p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-600 text-white rounded-xl shadow-sm">
+            <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)]">
               <ClipboardCheck className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">Tasks &amp; Approvals</h1>
+              <h1 className="text-3xl font-black tracking-tight text-[var(--bg-foreground)]">Tasks &amp; Approvals</h1>
               <p className="text-[var(--bg-muted)] text-sm mt-1">
                 Track every task, assignee, deadline, and approval sign-off.
               </p>
@@ -823,7 +823,7 @@ export default function TasksPage() {
           <button
             type="button"
             onClick={() => setShowAssignForm((v) => !v)}
-            className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-blue-600 text-white text-sm font-bold shadow-sm transition hover:bg-blue-700 shrink-0"
+            className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-blue-600 text-white text-sm font-bold shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] transition hover:bg-blue-700 hover:-translate-y-0.5 shrink-0"
           >
             <Plus className="w-4 h-4" /> Assign Task
           </button>
@@ -914,7 +914,7 @@ export default function TasksPage() {
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center justify-between gap-3">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Total Tasks</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.total}</p>
@@ -923,7 +923,7 @@ export default function TasksPage() {
               <ClipboardList className="w-5 h-5" />
             </span>
           </div>
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center justify-between gap-3">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">In Progress</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.inProgress}</p>
@@ -932,7 +932,7 @@ export default function TasksPage() {
               <Timer className="w-5 h-5" />
             </span>
           </div>
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center justify-between gap-3">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Pending Review</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.pendingReview}</p>
@@ -944,7 +944,7 @@ export default function TasksPage() {
               <ShieldCheck className="w-5 h-5" />
             </span>
           </div>
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center justify-between gap-3">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Overdue</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.overdue}</p>
@@ -958,7 +958,7 @@ export default function TasksPage() {
           </div>
         </div>
 
-        <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 mb-5 space-y-3">
+        <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_24px_-12px_rgba(15,23,42,0.1)] p-4 mb-5 space-y-3">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1078,43 +1078,43 @@ export default function TasksPage() {
                       key={task.id}
                       type="button"
                       onClick={() => setSelectedTaskId(task.id)}
-                      className={`w-full text-left rounded-2xl border-t border-r border-b border-l-4 shadow-sm p-4 transition-all bg-[var(--card)] ${accentBorder} ${frameBorder}`}
+                      className={`w-full text-left rounded-2xl border-t border-r border-b border-l-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_18px_-10px_rgba(15,23,42,0.1)] p-4 transition-all bg-[var(--card)] hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)] ${accentBorder} ${frameBorder}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)] text-[var(--accent-text)] text-xs font-bold shrink-0 mt-0.5">
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-bold shrink-0 shadow-sm ring-2 ring-white mt-0.5">
                             {effectiveAssigneeName(task).charAt(0).toUpperCase() || "?"}
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-bold text-[var(--card-foreground)] flex items-center gap-1.5 flex-wrap">
                                 {task.is_urgent && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 flex items-center gap-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-rose-100 text-rose-600 flex items-center gap-1">
                                     <Flame className="w-3 h-3" /> Urgent
                                   </span>
                                 )}
                                 {completedLate && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 flex items-center gap-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
                                     <AlertTriangle className="w-3 h-3" /> Late
                                   </span>
                                 )}
                                 {approvalState === "pending_manager" && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-amber-100 text-amber-700">
                                     Awaiting Manager Review
                                   </span>
                                 )}
                                 {approvalState === "pending_admin" && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-amber-100 text-amber-700">
                                     Pending Review
                                   </span>
                                 )}
                                 {(approvalState === "approved" || approvalState === "auto_approved") && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
                                     <ShieldCheck className="w-3 h-3" /> Approved
                                   </span>
                                 )}
                                 {approvalState === "rejected" && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-rose-100 text-rose-700">
                                     Not On Time
                                   </span>
                                 )}
@@ -1170,9 +1170,9 @@ export default function TasksPage() {
 
           <div className="lg:sticky lg:top-6 min-w-0">
             {selectedTask && selectedDerived ? (
-              <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--card-border)] bg-slate-50">
-                  <span className="text-xs font-bold text-slate-500">
+              <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_2px_4px_rgba(15,23,42,0.04),0_24px_48px_-16px_rgba(15,23,42,0.18)] overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--card-border)] bg-slate-50/80">
+                  <span className="text-xs font-bold text-slate-500 font-mono tracking-wide">
                     TSK-{selectedTask.id} · Task Inspector
                   </span>
                   {isAdmin && selectedTask.assigned_by_email === email && (
@@ -1192,37 +1192,37 @@ export default function TasksPage() {
                     <h2 className="text-xl font-black text-[var(--card-foreground)]">{selectedTask.title}</h2>
                     <div className="flex items-center gap-1.5 flex-wrap mt-2">
                       {selectedTask.is_urgent && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 flex items-center gap-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-rose-100 text-rose-600 flex items-center gap-1">
                           <Flame className="w-3 h-3" /> Urgent
                         </span>
                       )}
                       {selectedDerived.completedLate && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 flex items-center gap-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" /> Completed Late
                         </span>
                       )}
                       {(selectedDerived.approvalState === "approved" || selectedDerived.approvalState === "auto_approved") && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
                           <ShieldCheck className="w-3 h-3" /> Approved
                         </span>
                       )}
                       {selectedDerived.approvalState === "rejected" && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 flex items-center gap-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">
                           <XCircle className="w-3 h-3" /> Not Delivered On Time
                         </span>
                       )}
                       {selectedDerived.approvalState === "pending_manager" && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-amber-100 text-amber-700">
                           Awaiting Manager Review
                         </span>
                       )}
                       {selectedDerived.approvalState === "pending_admin" && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-amber-100 text-amber-700">
                           Awaiting Admin Approval
                         </span>
                       )}
                       {selectedTask.revision_count > 0 && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 flex items-center gap-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-full bg-violet-100 text-violet-700 flex items-center gap-1">
                           <RotateCcw className="w-3 h-3" /> Revised {selectedTask.revision_count}x
                         </span>
                       )}
@@ -1260,7 +1260,7 @@ export default function TasksPage() {
                         Current Assignee
                       </p>
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)] text-[var(--accent-text)] text-xs font-bold shrink-0">
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-bold shrink-0 shadow-sm ring-2 ring-white">
                           {effectiveAssigneeName(selectedTask).charAt(0).toUpperCase() || "?"}
                         </span>
                         <div className="min-w-0">
@@ -1280,7 +1280,7 @@ export default function TasksPage() {
                         Approval Manager
                       </p>
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600 text-white text-xs font-bold shrink-0">
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white text-xs font-bold shrink-0 shadow-sm ring-2 ring-white">
                           {(selectedTask.reassigned_by_name || "Admin").charAt(0).toUpperCase()}
                         </span>
                         <div className="min-w-0">
@@ -1349,29 +1349,29 @@ export default function TasksPage() {
                         <div key={i} className="flex gap-3">
                           <div className="flex flex-col items-center shrink-0">
                             <span
-                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-[var(--card)] ${
                                 ev.tone === "success"
-                                  ? "bg-emerald-100 text-emerald-700"
+                                  ? "bg-emerald-500 text-white"
                                   : ev.tone === "danger"
-                                  ? "bg-rose-100 text-rose-700"
+                                  ? "bg-rose-500 text-white"
                                   : ev.tone === "warning"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-slate-100 text-slate-600"
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-slate-400 text-white"
                               }`}
                             >
                               {i + 1}
                             </span>
                             {i < selectedDerived.auditTrail.length - 1 && (
-                              <span className="w-px flex-1 bg-slate-200 mt-1" />
+                              <span className="w-px flex-1 bg-gradient-to-b from-slate-200 to-slate-100 mt-1" />
                             )}
                           </div>
-                          <div className="pb-3 flex-1 min-w-0">
+                          <div className="pb-4 flex-1 min-w-0">
                             <p className="text-sm font-bold text-[var(--card-foreground)]">{ev.label}</p>
                             <p className="text-xs text-[var(--card-muted)]">
                               {ev.by} · {formatDateTime(ev.at)}
                             </p>
                             {ev.detail && (
-                              <p className="text-xs text-[var(--card-muted)] mt-1 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">
+                              <p className="text-xs text-[var(--card-muted)] mt-1.5 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 whitespace-pre-wrap">
                                 {ev.detail}
                               </p>
                             )}
@@ -1411,7 +1411,7 @@ export default function TasksPage() {
 
                   <div className="border-t border-[var(--card-border)] pt-4 space-y-3">
                     {selectedDerived.managerNeedsToDecide && (
-                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
+                      <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-amber-50/60 border border-amber-200/80 p-4 space-y-2.5 shadow-sm">
                         <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
                           <ShieldAlert className="w-3.5 h-3.5" /> Manager Sign-Off Required
                         </p>
@@ -1425,7 +1425,7 @@ export default function TasksPage() {
                             type="button"
                             onClick={() => submitManagerDecision(selectedTask.id, "approved")}
                             disabled={decidingId === selectedTask.id}
-                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-all hover:-translate-y-0.5 shadow-[0_6px_16px_-4px_rgba(16,185,129,0.5)] flex items-center gap-1.5"
                           >
                             {decidingId === selectedTask.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1438,7 +1438,7 @@ export default function TasksPage() {
                             type="button"
                             onClick={() => submitManagerDecision(selectedTask.id, "rejected")}
                             disabled={decidingId === selectedTask.id}
-                            className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                            className="px-4 py-2 bg-white text-rose-600 border-2 border-rose-200 rounded-full text-sm font-bold hover:bg-rose-50 hover:border-rose-300 disabled:opacity-40 transition-all flex items-center gap-1.5"
                           >
                             <XCircle className="w-4 h-4" /> Not Delivered On Time
                           </button>
@@ -1447,7 +1447,7 @@ export default function TasksPage() {
                     )}
 
                     {selectedDerived.adminNeedsToDecide && (
-                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
+                      <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-amber-50/60 border border-amber-200/80 p-4 space-y-2.5 shadow-sm">
                         <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
                           <ShieldAlert className="w-3.5 h-3.5" /> Admin Sign-Off Required
                         </p>
@@ -1465,7 +1465,7 @@ export default function TasksPage() {
                             type="button"
                             onClick={() => submitAdminDecision(selectedTask.id, "approved")}
                             disabled={decidingId === selectedTask.id}
-                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-all hover:-translate-y-0.5 shadow-[0_6px_16px_-4px_rgba(16,185,129,0.5)] flex items-center gap-1.5"
                           >
                             {decidingId === selectedTask.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1478,7 +1478,7 @@ export default function TasksPage() {
                             type="button"
                             onClick={() => submitAdminDecision(selectedTask.id, "rejected")}
                             disabled={decidingId === selectedTask.id}
-                            className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                            className="px-4 py-2 bg-white text-rose-600 border-2 border-rose-200 rounded-full text-sm font-bold hover:bg-rose-50 hover:border-rose-300 disabled:opacity-40 transition-all flex items-center gap-1.5"
                           >
                             <XCircle className="w-4 h-4" /> Not Delivered On Time
                           </button>
@@ -1579,7 +1579,7 @@ export default function TasksPage() {
                                 type="button"
                                 onClick={() => submitComplete(selectedTask.id)}
                                 disabled={isCompleting || !completionNotesDraft.trim()}
-                                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                                className="px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-all hover:-translate-y-0.5 shadow-[0_6px_16px_-4px_rgba(16,185,129,0.5)] flex items-center gap-1.5"
                               >
                                 {isCompleting ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1671,7 +1671,7 @@ export default function TasksPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-10 text-center text-sm text-[var(--card-muted)]">
+              <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_24px_-12px_rgba(15,23,42,0.1)] p-10 text-center text-sm text-[var(--card-muted)]">
                 Select a task to view its full details.
               </div>
             )}
