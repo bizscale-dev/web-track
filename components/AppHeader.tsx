@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import { useAuth } from "./AuthProvider";
-import { Search, User as UserIcon } from "lucide-react";
+import { Search, User as UserIcon, Boxes } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell";
 import NavDrawer from "@/components/NavDrawer";
 import NotificationBanner from "@/components/NotificationBanner";
 import RouteBreadcrumb from "@/components/RouteBreadcrumb";
+import { useSidebar } from "./SidebarContext";
 
 export default function AppHeader() {
   const { role, name, avatar } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const { collapsed, toggle } = useSidebar();
 
   // THE INTERCEPTOR: Hide the header entirely on the login page
   if (pathname === "/") return null;
@@ -28,6 +30,17 @@ export default function AppHeader() {
     <div className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] transition-all duration-500">
       <div className="w-full px-4 sm:px-8 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
+          {role !== "user" && collapsed && (
+            <button
+              type="button"
+              onClick={toggle}
+              title="Show sidebar"
+              aria-label="Show sidebar"
+              className="hidden lg:flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-colors shrink-0"
+            >
+              <Boxes className="w-[18px] h-[18px]" />
+            </button>
+          )}
           {role !== "user" && (
             <div className="relative hidden sm:block w-full max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

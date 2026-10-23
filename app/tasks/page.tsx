@@ -1018,7 +1018,7 @@ export default function TasksPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 items-start">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wider text-[var(--bg-muted)] mb-2">
               Showing {adminVisibleTasks.length} of {tasks.length} tasks
             </p>
@@ -1140,7 +1140,7 @@ export default function TasksPage() {
             )}
           </div>
 
-          <div className="lg:sticky lg:top-6">
+          <div className="lg:sticky lg:top-6 min-w-0">
             {selectedTask && selectedDerived ? (
               <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-2xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--card-border)] bg-slate-50">

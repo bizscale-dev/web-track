@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { useNavItems } from "./useNavItems";
+import { useSidebar } from "./SidebarContext";
 import { Boxes, Lock, LogOut } from "lucide-react";
-
-const COLLAPSED_KEY = "website-crm-sidebar-collapsed";
 
 // Persistent desktop nav (hidden lg:flex) — the reference image's dark
 // sidebar look. NavDrawer still handles mobile with the same items via
@@ -17,27 +15,7 @@ export default function AppSidebar() {
   const { role } = useAuth();
   const pathname = usePathname();
   const { items } = useNavItems();
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    try {
-      setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "1");
-    } catch {
-      // Private browsing / blocked storage — just stay expanded.
-    }
-  }, []);
-
-  const toggleCollapsed = () => {
-    setCollapsed((current) => {
-      const next = !current;
-      try {
-        window.localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
-      } catch {
-        // Nothing to persist to — the in-memory toggle still works this session.
-      }
-      return next;
-    });
-  };
+  const { collapsed, setCollapsed, toggle } = useSidebar();
 
   // THE INTERCEPTOR: Hide the sidebar entirely on the login page, even for
   // an already-authenticated session that hasn't redirected yet.
@@ -53,31 +31,14 @@ export default function AppSidebar() {
   };
 
   return (
-    <>
-      {/* Floating re-open button — fades in once the panel below has
-          slid off-screen. */}
+    <aside
+      className={`hidden lg:flex lg:flex-col fixed inset-y-0 left-0 z-[110] w-64 bg-slate-950 text-slate-300 border-r border-slate-800 shadow-2xl transition-transform duration-200 ease-out ${
+        collapsed ? "-translate-x-full" : "translate-x-0"
+      }`}
+    >
       <button
         type="button"
-        onClick={toggleCollapsed}
-        title="Show sidebar"
-        aria-label="Show sidebar"
-        className={`hidden lg:flex fixed top-4 left-4 z-[109] items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-opacity duration-200 ${
-          collapsed ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-      >
-        <Boxes className="w-[18px] h-[18px]" />
-      </button>
-
-      {/* Fixed overlay — sits on top of the header and page content instead
-          of pushing them over, so the content column is always full width. */}
-      <aside
-        className={`hidden lg:flex lg:flex-col fixed inset-y-0 left-0 z-[110] w-64 bg-slate-950 text-slate-300 border-r border-slate-800 shadow-2xl transition-transform duration-200 ease-out ${
-          collapsed ? "-translate-x-full" : "translate-x-0"
-        }`}
-      >
-      <button
-        type="button"
-        onClick={toggleCollapsed}
+        onClick={toggle}
         title="Hide sidebar"
         className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-800/80 shrink-0 text-left hover:bg-slate-900/60 transition-colors"
       >
@@ -109,6 +70,7 @@ export default function AppSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setCollapsed(true)}
               className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
                 active
                   ? "bg-blue-600/15 text-blue-400 border-l-2 border-blue-500 pl-[10px]"
@@ -133,7 +95,6 @@ export default function AppSidebar() {
           <span className="text-sm font-bold">Drop Access</span>
         </button>
       </div>
-      </aside>
-    </>
+    </aside>
   );
 }

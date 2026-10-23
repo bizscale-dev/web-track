@@ -2,6 +2,7 @@ import BatmanThemeToggle from "@/components/BatmanThemeToggle";
 import AppHeader from "@/components/AppHeader";
 import AppSidebar from "@/components/AppSidebar";
 import { AuthProvider } from "@/components/AuthProvider";
+import { SidebarProvider } from "@/components/SidebarContext";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -22,15 +23,17 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[var(--bg)]">
-            <div className="absolute -top-20 left-[-5rem] h-64 w-64 rounded-full bg-[var(--accent)]/10 blur-3xl" />
-            <div className="absolute top-44 right-[-5rem] h-72 w-72 rounded-full bg-[var(--button)]/10 blur-3xl" />
-          </div>
-          <AppSidebar />
-          <div className="relative z-10 flex min-h-screen w-full flex-col min-w-0">
-            <AppHeader />
-            {children}
-          </div>
+          <SidebarProvider>
+            <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[var(--bg)]">
+              <div className="absolute -top-20 left-[-5rem] h-64 w-64 rounded-full bg-[var(--accent)]/10 blur-3xl" />
+              <div className="absolute top-44 right-[-5rem] h-72 w-72 rounded-full bg-[var(--button)]/10 blur-3xl" />
+            </div>
+            <AppSidebar />
+            <div className="relative z-10 flex min-h-screen w-full flex-col min-w-0">
+              <AppHeader />
+              {children}
+            </div>
+          </SidebarProvider>
           <BatmanThemeToggle />
         </AuthProvider>
       </body>
