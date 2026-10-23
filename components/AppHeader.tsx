@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { Search, User as UserIcon, Boxes } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,6 +16,22 @@ export default function AppHeader() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const { collapsed, toggle } = useSidebar();
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  // Publishes the header's real, possibly-variable height (breadcrumb
+  // wrapping, the notification banner showing/hiding) as a CSS var so
+  // anything else that's sticky — like the Tasks detail panel — can offset
+  // itself below the header instead of guessing a fixed pixel value and
+  // tucking in behind it.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      document.documentElement.style.setProperty("--app-header-h", `${entry.contentRect.height}px`);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pathname]);
 
   // THE INTERCEPTOR: Hide the header entirely on the login page
   if (pathname === "/") return null;
@@ -27,7 +43,10 @@ export default function AppHeader() {
   };
 
   return (
-    <div className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] transition-all duration-500">
+    <div
+      ref={headerRef}
+      className="sticky top-0 z-[100] w-full bg-white/95 border-b border-slate-200 shadow-[0_4px_30px_rgba(0,0,0,0.03)] transition-all duration-500"
+    >
       <div className="w-full px-4 sm:px-8 py-3 flex items-stretch justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">

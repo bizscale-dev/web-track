@@ -1168,7 +1168,7 @@ export default function TasksPage() {
             )}
           </div>
 
-          <div className="lg:sticky lg:top-6 min-w-0">
+          <div className="lg:sticky lg:top-[calc(var(--app-header-h,96px)+16px)] min-w-0">
             {selectedTask && selectedDerived ? (
               <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_2px_4px_rgba(15,23,42,0.04),0_24px_48px_-16px_rgba(15,23,42,0.18)] overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--card-border)] bg-slate-50/80">
@@ -1187,7 +1187,7 @@ export default function TasksPage() {
                   )}
                 </div>
 
-                <div className="p-5 space-y-5 max-h-[calc(100vh-180px)] overflow-y-auto">
+                <div className="p-5 space-y-5 max-h-[calc(100vh-var(--app-header-h,96px)-60px)] overflow-y-auto">
                   <div>
                     <h2 className="text-xl font-black text-[var(--card-foreground)]">{selectedTask.title}</h2>
                     <div className="flex items-center gap-1.5 flex-wrap mt-2">
