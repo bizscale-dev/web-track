@@ -37,10 +37,23 @@ import {
   MessageSquareWarning,
   RotateCcw,
   Eye,
+  Search,
+  ClipboardList,
+  ChevronRight,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
 type Tab = "mine" | "assigned" | "all";
+type WorkStatusFilter = "all" | "pending" | "in_progress" | "completed";
+type QuickFilter = "all" | "mine" | "urgent" | "overdue" | "pending_review" | "approved";
+
+type AuditEvent = {
+  label: string;
+  by: string;
+  at: string;
+  detail?: string | null;
+  tone?: "default" | "success" | "warning" | "danger";
+};
 
 function daysAgo(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -48,6 +61,68 @@ function daysAgo(dateStr: string): string {
   if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
   return `${days} days ago`;
+}
+
+function formatDateTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+// Reconstructs a chronological handover trail for the detail panel from
+// whatever timestamps the task and its revisions already carry — there's no
+// separate audit-log table, so this is derived, not stored.
+function buildAuditTrail(task: AssignedTask, revisions: TaskRevision[]): AuditEvent[] {
+  const events: AuditEvent[] = [
+    { label: "Created", by: task.assigned_by_name, at: task.created_at, detail: task.description || null },
+  ];
+
+  if (task.reassigned_at) {
+    events.push({
+      label: `Reassigned to ${task.reassigned_to_name}`,
+      by: task.reassigned_by_name || "Unknown Manager",
+      at: task.reassigned_at,
+    });
+  }
+
+  if (task.started_at) {
+    events.push({ label: "Started", by: effectiveAssigneeName(task), at: task.started_at });
+  }
+
+  for (const r of revisions.filter((rev) => rev.task_id === task.id).slice().reverse()) {
+    events.push({ label: "Sent back for revision", by: r.requested_by_name, at: r.created_at, detail: r.reason, tone: "warning" });
+    if (r.resolved_at) {
+      events.push({ label: "Revision resolved", by: r.assignee_name, at: r.resolved_at, tone: "success" });
+    }
+  }
+
+  if (task.completed_at) {
+    events.push({
+      label: "Submitted for review",
+      by: effectiveAssigneeName(task),
+      at: task.completed_at,
+      detail: task.late_reason ? `Late submission reason: ${task.late_reason}` : null,
+      tone: task.late_reason ? "warning" : "default",
+    });
+  }
+
+  if (task.manager_approval_at) {
+    events.push({
+      label: task.manager_approval === "approved" ? "Manager approved" : "Manager marked not delivered on time",
+      by: task.manager_approval_by_name || "Unknown Manager",
+      at: task.manager_approval_at,
+      tone: task.manager_approval === "approved" ? "success" : "danger",
+    });
+  }
+
+  if (task.admin_approval_at) {
+    events.push({
+      label: task.admin_approval === "approved" ? "Admin approved" : "Admin marked not delivered on time",
+      by: task.admin_approval_by_name || "Unknown Admin",
+      at: task.admin_approval_at,
+      tone: task.admin_approval === "approved" ? "success" : "danger",
+    });
+  }
+
+  return events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 }
 
 export default function TasksPage() {
@@ -109,6 +184,14 @@ export default function TasksPage() {
   const [revisionDueAtDraft, setRevisionDueAtDraft] = useState("");
   const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
   const [revisionError, setRevisionError] = useState<string | null>(null);
+
+  // Admin/Manager master-detail view only — everyone else keeps the plain
+  // card list below.
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [workStatusFilter, setWorkStatusFilter] = useState<WorkStatusFilter>("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
 
   // Admin never has tasks assigned to them, so they don't get a "mine" tab —
   // default them straight into tracking what they've handed out. Managers
@@ -556,6 +639,130 @@ export default function TasksPage() {
     (t) => effectiveAssigneeEmail(t) === email && t.status !== "completed"
   ).length;
 
+  const isPendingReviewState = (t: AssignedTask) => {
+    const st = computeApprovalState(t);
+    return st === "pending_manager" || st === "pending_admin";
+  };
+  const isOverdueTask = (t: AssignedTask) =>
+    t.status !== "completed" && !!t.due_at && new Date(t.due_at) < new Date();
+  const isMineForAdmin = (t: AssignedTask) =>
+    t.assigned_by_email === email || effectiveAssigneeEmail(t) === email || t.reassigned_by_email === email;
+
+  const adminStats = useMemo(
+    () => ({
+      total: tasks.length,
+      inProgress: tasks.filter((t) => t.status === "in_progress").length,
+      pendingReview: tasks.filter(isPendingReviewState).length,
+      overdue: tasks.filter(isOverdueTask).length,
+    }),
+    [tasks]
+  );
+
+  const quickFilterCounts = useMemo(
+    () => ({
+      all: tasks.length,
+      mine: tasks.filter(isMineForAdmin).length,
+      urgent: tasks.filter((t) => t.is_urgent).length,
+      overdue: tasks.filter(isOverdueTask).length,
+      pending_review: tasks.filter(isPendingReviewState).length,
+      approved: tasks.filter((t) => {
+        const st = computeApprovalState(t);
+        return st === "approved" || st === "auto_approved";
+      }).length,
+    }),
+    [tasks, email]
+  );
+
+  const adminVisibleTasks = useMemo(() => {
+    let list = tasks;
+    if (quickFilter === "mine") list = list.filter(isMineForAdmin);
+    else if (quickFilter === "urgent") list = list.filter((t) => t.is_urgent);
+    else if (quickFilter === "overdue") list = list.filter(isOverdueTask);
+    else if (quickFilter === "pending_review") list = list.filter(isPendingReviewState);
+    else if (quickFilter === "approved")
+      list = list.filter((t) => {
+        const st = computeApprovalState(t);
+        return st === "approved" || st === "auto_approved";
+      });
+
+    if (workStatusFilter !== "all") list = list.filter((t) => t.status === workStatusFilter);
+    if (assigneeFilter !== "all") list = list.filter((t) => effectiveAssigneeEmail(t) === assigneeFilter);
+
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) => t.title.toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q)
+      );
+    }
+
+    return [...list].sort((a, b) => {
+      if (a.is_urgent !== b.is_urgent) return a.is_urgent ? -1 : 1;
+      const aDone = a.status === "completed";
+      const bDone = b.status === "completed";
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [tasks, quickFilter, workStatusFilter, assigneeFilter, searchQuery, email]);
+
+  // Keeps a task open by default (and swaps to the next visible one if the
+  // current selection gets filtered out or deleted) instead of leaving the
+  // panel empty whenever possible.
+  useEffect(() => {
+    if (!canAssign) return;
+    if (selectedTaskId !== null && adminVisibleTasks.some((t) => t.id === selectedTaskId)) return;
+    setSelectedTaskId(adminVisibleTasks[0]?.id ?? null);
+  }, [canAssign, adminVisibleTasks, selectedTaskId]);
+
+  const selectedTask = useMemo(
+    () => tasks.find((t) => t.id === selectedTaskId) || null,
+    [tasks, selectedTaskId]
+  );
+
+  const selectedDerived = useMemo(() => {
+    if (!selectedTask) return null;
+    const task = selectedTask;
+    const isMine = effectiveAssigneeEmail(task) === email;
+    const isPending = task.status === "pending";
+    const isInProgress = task.status === "in_progress";
+    const isCompleted = task.status === "completed";
+    const wasReassigned = !!task.reassigned_to_email;
+    const canReassign = isManager && task.assigned_to_email === email && !wasReassigned && !isCompleted;
+    const isOverdue = isOverdueTask(task);
+    const completedLate = isCompleted && isLateCompletion(task);
+    const approvalState = computeApprovalState(task);
+    const managerNeedsToDecide =
+      isManager && task.reassigned_by_email === email && approvalState === "pending_manager";
+    const adminNeedsToDecide = isAdmin && approvalState === "pending_admin";
+    const liveDuration =
+      isInProgress && task.started_at
+        ? formatBusinessDuration(calculateBusinessDuration(new Date(task.started_at), new Date(), holidays))
+        : null;
+    const finalDuration =
+      isCompleted && task.completed_at
+        ? formatBusinessDuration(
+            calculateBusinessDuration(new Date(task.started_at || task.created_at), new Date(task.completed_at), holidays),
+            true
+          )
+        : null;
+    const auditTrail = buildAuditTrail(task, taskRevisions);
+    return {
+      isMine,
+      isPending,
+      isInProgress,
+      isCompleted,
+      wasReassigned,
+      canReassign,
+      isOverdue,
+      completedLate,
+      approvalState,
+      managerNeedsToDecide,
+      adminNeedsToDecide,
+      liveDuration,
+      finalDuration,
+      auditTrail,
+    };
+  }, [selectedTask, email, isManager, isAdmin, holidays, taskRevisions]);
+
   if (authLoading || ((isHr || isDesigner) && highlightTaskId === null)) {
     return (
       <div className="flex justify-center py-20">
@@ -571,6 +778,861 @@ export default function TasksPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Clearance Required</h1>
         <p className="text-gray-600">Please sign in to view your tasks.</p>
       </div>
+    );
+  }
+
+  // Admin/Manager get a dedicated master-detail view — a filterable list on
+  // the left, and a full inspector panel on the right for whichever task is
+  // selected. Every other role keeps the plain card list further below.
+  if (canAssign) {
+    const quickFilterChips: { key: QuickFilter; label: string; count: number }[] = [
+      { key: "all", label: "All Tasks", count: quickFilterCounts.all },
+      { key: "mine", label: "My Tasks", count: quickFilterCounts.mine },
+      { key: "urgent", label: "Urgent", count: quickFilterCounts.urgent },
+      { key: "overdue", label: "Overdue", count: quickFilterCounts.overdue },
+      { key: "pending_review", label: "Pending Review", count: quickFilterCounts.pending_review },
+      { key: "approved", label: "Approved", count: quickFilterCounts.approved },
+    ];
+    const filtersActive =
+      !!searchQuery || assigneeFilter !== "all" || workStatusFilter !== "all" || quickFilter !== "all";
+
+    return (
+      <main className="max-w-[1600px] mx-auto w-full p-4 sm:p-6 lg:p-8">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+        </Link>
+
+        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-600 text-white rounded-xl shadow-sm">
+              <ClipboardCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">Tasks &amp; Approvals</h1>
+              <p className="text-[var(--bg-muted)] text-sm mt-1">
+                Track every task, assignee, deadline, and approval sign-off.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAssignForm((v) => !v)}
+            className="inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-[var(--button)] text-[var(--button-text)] text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--button-hover)] shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Assign Task
+          </button>
+        </div>
+
+        {showAssignForm && (
+          <div className="bg-[var(--card)] border border-[var(--accent)]/30 rounded-2xl shadow-sm p-5 mb-6 space-y-3 max-w-xl">
+            <p className="text-xs font-bold uppercase tracking-wider text-[var(--card-muted)]">New Task</p>
+            <input
+              type="text"
+              value={assignTitle}
+              onChange={(e) => setAssignTitle(e.target.value)}
+              placeholder="Task title"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+            />
+            <textarea
+              value={assignDescription}
+              onChange={(e) => setAssignDescription(e.target.value)}
+              placeholder="Details (optional)"
+              rows={3}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
+            />
+            <select
+              value={assignToEmail}
+              onChange={(e) => setAssignToEmail(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] bg-white"
+            >
+              <option value="">Assign to...</option>
+              {assignableMembers.map((m) => (
+                <option key={m.email} value={m.email}>
+                  {m.name} ({m.role})
+                </option>
+              ))}
+            </select>
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1.5">
+                <CalendarClock className="w-3.5 h-3.5" /> Deadline (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={assignDueAt}
+                onChange={(e) => setAssignDueAt(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setAssignUrgent((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50/50"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-[var(--card-foreground)]">
+                <Flame className={`w-4 h-4 ${assignUrgent ? "text-rose-500" : "text-gray-400"}`} />
+                Mark as Urgent
+              </span>
+              <span
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  assignUrgent ? "bg-rose-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    assignUrgent ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </span>
+            </button>
+            {assignError && <p className="text-xs font-bold text-rose-600">{assignError}</p>}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={submitAssign}
+                disabled={isAssigning || !assignTitle.trim() || !assignToEmail}
+                className="px-4 py-2 bg-[var(--button)] text-[var(--button-text)] rounded-lg text-sm font-bold hover:bg-[var(--button-hover)] disabled:opacity-40 transition-colors flex items-center gap-1.5"
+              >
+                {isAssigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Assign
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAssignForm(false)}
+                disabled={isAssigning}
+                className="px-4 py-2 text-[var(--card-muted)] rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 text-slate-600 shrink-0">
+              <ClipboardList className="w-5 h-5" />
+            </span>
+            <div>
+              <p className="text-2xl font-black text-[var(--card-foreground)] leading-none">{adminStats.total}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-1">Total Tasks</p>
+            </div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+              <Timer className="w-5 h-5" />
+            </span>
+            <div>
+              <p className="text-2xl font-black text-[var(--card-foreground)] leading-none">{adminStats.inProgress}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-1">In Progress</p>
+            </div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-50 text-amber-600 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </span>
+            <div>
+              <p className="text-2xl font-black text-[var(--card-foreground)] leading-none">{adminStats.pendingReview}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-1">Pending Review</p>
+            </div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 flex items-center gap-3">
+            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-rose-50 text-rose-600 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </span>
+            <div>
+              <p className="text-2xl font-black text-[var(--card-foreground)] leading-none">{adminStats.overdue}</p>
+              <p className="text-[11px] font-semibold text-[var(--card-muted)] mt-1">Overdue</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-4 mb-5 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tasks by title or description..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+              />
+            </div>
+            <select
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+            >
+              <option value="all">Assignee: All</option>
+              {teamMembers.map((m) => (
+                <option key={m.email} value={m.email}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={workStatusFilter}
+              onChange={(e) => setWorkStatusFilter(e.target.value as WorkStatusFilter)}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+            >
+              <option value="all">Status: All</option>
+              <option value="pending">Not Started</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {quickFilterChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => setQuickFilter(chip.key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                  quickFilter === chip.key
+                    ? "bg-[var(--button)] text-[var(--button-text)]"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {chip.label}
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                    quickFilter === chip.key ? "bg-white/20" : "bg-white text-slate-500"
+                  }`}
+                >
+                  {chip.count}
+                </span>
+              </button>
+            ))}
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setAssigneeFilter("all");
+                  setWorkStatusFilter("all");
+                  setQuickFilter("all");
+                }}
+                className="text-xs font-bold text-[var(--accent)] hover:opacity-80 px-2"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[var(--bg-muted)] mb-2">
+              Showing {adminVisibleTasks.length} of {tasks.length} tasks
+            </p>
+
+            {isLoading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
+              </div>
+            ) : error ? (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">{error}</div>
+            ) : (
+              <div className="space-y-2.5">
+                {adminVisibleTasks.map((task) => {
+                  const isSelected = task.id === selectedTaskId;
+                  const isCompleted = task.status === "completed";
+                  const isInProgress = task.status === "in_progress";
+                  const approvalState = computeApprovalState(task);
+                  const isOverdue = isOverdueTask(task);
+                  const completedLate = isCompleted && isLateCompletion(task);
+
+                  return (
+                    <button
+                      key={task.id}
+                      type="button"
+                      onClick={() => setSelectedTaskId(task.id)}
+                      className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all ${
+                        isSelected
+                          ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/20 bg-[var(--accent-light)]"
+                          : approvalState === "rejected"
+                          ? "bg-rose-50/50 border-rose-200 hover:border-rose-300"
+                          : completedLate
+                          ? "bg-amber-50/50 border-amber-200 hover:border-amber-300"
+                          : isCompleted
+                          ? "bg-emerald-50/50 border-emerald-200 hover:border-emerald-300"
+                          : isOverdue || task.is_urgent
+                          ? "bg-rose-50/40 border-rose-200 hover:border-rose-300"
+                          : "bg-[var(--card)] border-[var(--card-border)] hover:border-[var(--accent)]/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-[var(--card-foreground)] flex items-center gap-1.5 flex-wrap">
+                            {task.is_urgent && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 flex items-center gap-1">
+                                <Flame className="w-3 h-3" /> Urgent
+                              </span>
+                            )}
+                            {completedLate && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Late
+                              </span>
+                            )}
+                            {approvalState === "pending_manager" && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                Awaiting Manager Review
+                              </span>
+                            )}
+                            {approvalState === "pending_admin" && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                Pending Review
+                              </span>
+                            )}
+                            {(approvalState === "approved" || approvalState === "auto_approved") && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" /> Approved
+                              </span>
+                            )}
+                            {approvalState === "rejected" && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
+                                Not On Time
+                              </span>
+                            )}
+                            <span className="truncate">{task.title}</span>
+                          </p>
+                          {task.description && (
+                            <p className="text-xs text-[var(--card-muted)] mt-1 truncate">{task.description}</p>
+                          )}
+                          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-[var(--card-muted)]">
+                            <span className="flex items-center gap-1">
+                              <UserIcon className="w-3 h-3" /> {effectiveAssigneeName(task)}
+                            </span>
+                            <span>assigned by {task.assigned_by_name}</span>
+                            {task.due_at && (
+                              <span className={isOverdue ? "text-rose-600 font-semibold" : ""}>
+                                Due {formatDateTime(task.due_at)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 ${
+                              isCompleted
+                                ? "text-emerald-600 bg-emerald-50 border border-emerald-100"
+                                : isInProgress
+                                ? "text-blue-600 bg-blue-50 border border-blue-100"
+                                : "text-amber-600 bg-amber-50 border border-amber-100"
+                            }`}
+                          >
+                            {isCompleted ? (
+                              <CheckCircle2 className="w-3 h-3" />
+                            ) : isInProgress ? (
+                              <Timer className="w-3 h-3" />
+                            ) : (
+                              <Clock className="w-3 h-3" />
+                            )}
+                            {isCompleted ? "Completed" : isInProgress ? "In Progress" : "Not Started"}
+                          </span>
+                          <ChevronRight className={`w-4 h-4 ${isSelected ? "text-[var(--accent)]" : "text-slate-300"}`} />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+                {adminVisibleTasks.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-10">No tasks match these filters.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="lg:sticky lg:top-6">
+            {selectedTask && selectedDerived ? (
+              <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--card-border)] bg-slate-50">
+                  <span className="text-xs font-bold text-slate-500">
+                    TSK-{selectedTask.id} · Task Inspector
+                  </span>
+                  {isAdmin && selectedTask.assigned_by_email === email && (
+                    <button
+                      type="button"
+                      onClick={() => deleteTask(selectedTask.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Delete task"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-5 space-y-5 max-h-[calc(100vh-180px)] overflow-y-auto">
+                  <div>
+                    <h2 className="text-xl font-black text-[var(--card-foreground)]">{selectedTask.title}</h2>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                      {selectedTask.is_urgent && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 flex items-center gap-1">
+                          <Flame className="w-3 h-3" /> Urgent
+                        </span>
+                      )}
+                      {selectedDerived.completedLate && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Completed Late
+                        </span>
+                      )}
+                      {(selectedDerived.approvalState === "approved" || selectedDerived.approvalState === "auto_approved") && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" /> Approved
+                        </span>
+                      )}
+                      {selectedDerived.approvalState === "rejected" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 flex items-center gap-1">
+                          <XCircle className="w-3 h-3" /> Not Delivered On Time
+                        </span>
+                      )}
+                      {selectedDerived.approvalState === "pending_manager" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                          Awaiting Manager Review
+                        </span>
+                      )}
+                      {selectedDerived.approvalState === "pending_admin" && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                          Awaiting Admin Approval
+                        </span>
+                      )}
+                      {selectedTask.revision_count > 0 && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 flex items-center gap-1">
+                          <RotateCcw className="w-3 h-3" /> Revised {selectedTask.revision_count}x
+                        </span>
+                      )}
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 ${
+                          selectedDerived.isCompleted
+                            ? "text-emerald-600 bg-emerald-50 border border-emerald-100"
+                            : selectedDerived.isInProgress
+                            ? "text-blue-600 bg-blue-50 border border-blue-100"
+                            : "text-amber-600 bg-amber-50 border border-amber-100"
+                        }`}
+                      >
+                        {selectedDerived.isCompleted
+                          ? "Completed"
+                          : selectedDerived.isInProgress
+                          ? "In Progress"
+                          : "Not Started"}
+                      </span>
+                      {selectedDerived.isOverdue && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 text-rose-600 bg-rose-50 border border-rose-100">
+                          <AlertTriangle className="w-3 h-3" /> Overdue
+                        </span>
+                      )}
+                    </div>
+                    {selectedTask.description && (
+                      <p className="text-sm text-[var(--card-muted)] mt-3 whitespace-pre-wrap">
+                        {selectedTask.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1">
+                        Current Assignee
+                      </p>
+                      <p className="text-sm font-bold text-[var(--card-foreground)] flex items-center gap-1.5">
+                        <UserIcon className="w-3.5 h-3.5" /> {effectiveAssigneeName(selectedTask)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1">
+                        Approval Manager
+                      </p>
+                      <p className="text-sm font-bold text-[var(--card-foreground)]">
+                        {selectedTask.reassigned_by_name || "Admin"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1">
+                        Assigned By
+                      </p>
+                      <p className="text-sm font-bold text-[var(--card-foreground)]">{selectedTask.assigned_by_name}</p>
+                      <p className="text-xs text-[var(--card-muted)]">{formatDateTime(selectedTask.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1">
+                        Scheduled Deadline
+                      </p>
+                      {selectedTask.due_at ? (
+                        <p
+                          className={`text-sm font-bold flex items-center gap-1 ${
+                            selectedDerived.isOverdue || selectedDerived.completedLate
+                              ? "text-rose-600"
+                              : "text-[var(--card-foreground)]"
+                          }`}
+                        >
+                          {(selectedDerived.isOverdue || selectedDerived.completedLate) && (
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                          )}
+                          {formatDateTime(selectedTask.due_at)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-[var(--card-muted)]">No deadline set</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {(selectedDerived.liveDuration || selectedDerived.finalDuration) && (
+                    <div className="flex gap-3 text-xs font-semibold">
+                      {selectedDerived.liveDuration && (
+                        <span className="text-blue-600 flex items-center gap-1">
+                          <Timer className="w-3.5 h-3.5" /> {selectedDerived.liveDuration} elapsed
+                        </span>
+                      )}
+                      {selectedDerived.finalDuration && (
+                        <span className="text-emerald-600 flex items-center gap-1">
+                          <Timer className="w-3.5 h-3.5" /> took {selectedDerived.finalDuration}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--card-muted)] mb-2">
+                      Handover Audit Trail
+                    </p>
+                    <div>
+                      {selectedDerived.auditTrail.map((ev, i) => (
+                        <div key={i} className="flex gap-3">
+                          <div className="flex flex-col items-center shrink-0">
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                ev.tone === "success"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : ev.tone === "danger"
+                                  ? "bg-rose-100 text-rose-700"
+                                  : ev.tone === "warning"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {i + 1}
+                            </span>
+                            {i < selectedDerived.auditTrail.length - 1 && (
+                              <span className="w-px flex-1 bg-slate-200 mt-1" />
+                            )}
+                          </div>
+                          <div className="pb-3 flex-1 min-w-0">
+                            <p className="text-sm font-bold text-[var(--card-foreground)]">{ev.label}</p>
+                            <p className="text-xs text-[var(--card-muted)]">
+                              {ev.by} · {formatDateTime(ev.at)}
+                            </p>
+                            {ev.detail && (
+                              <p className="text-xs text-[var(--card-muted)] mt-1 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">
+                                {ev.detail}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(selectedTask.completion_notes || selectedTask.late_reason) && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--card-muted)] mb-2">
+                        Submission Deliverables
+                      </p>
+                      {selectedTask.completion_notes && (
+                        <div className="mb-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">
+                            Completion Notes
+                          </p>
+                          <p className="text-sm text-[var(--card-foreground)] bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                            {selectedTask.completion_notes}
+                          </p>
+                        </div>
+                      )}
+                      {selectedTask.late_reason && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-1 flex items-center gap-1">
+                            <MessageSquareWarning className="w-3 h-3" /> Mandatory Late Submission Reason
+                          </p>
+                          <p className="text-sm text-[var(--card-foreground)] bg-amber-50/60 border border-amber-100 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                            {selectedTask.late_reason}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="border-t border-[var(--card-border)] pt-4 space-y-3">
+                    {selectedDerived.managerNeedsToDecide && (
+                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
+                        <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5" /> Manager Sign-Off Required
+                        </p>
+                        <p className="text-xs text-amber-700/80">
+                          {selectedTask.late_reason
+                            ? "Review the reason above, then decide."
+                            : "Reassigned task completed — review and decide."}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => submitManagerDecision(selectedTask.id, "approved")}
+                            disabled={decidingId === selectedTask.id}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                          >
+                            {decidingId === selectedTask.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="w-4 h-4" />
+                            )}
+                            Approve &amp; Close
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => submitManagerDecision(selectedTask.id, "rejected")}
+                            disabled={decidingId === selectedTask.id}
+                            className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                          >
+                            <XCircle className="w-4 h-4" /> Not Delivered On Time
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedDerived.adminNeedsToDecide && (
+                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
+                        <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5" /> Admin Sign-Off Required
+                        </p>
+                        <p className="text-xs text-amber-700/80">
+                          {requiresManagerApproval(selectedTask)
+                            ? `Manager ${
+                                selectedTask.manager_approval === "approved"
+                                  ? "approved"
+                                  : "marked this not delivered on time"
+                              } — final admin approval needed.`
+                            : "Review the reason above, then decide."}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => submitAdminDecision(selectedTask.id, "approved")}
+                            disabled={decidingId === selectedTask.id}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                          >
+                            {decidingId === selectedTask.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="w-4 h-4" />
+                            )}
+                            Approve &amp; Close
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => submitAdminDecision(selectedTask.id, "rejected")}
+                            disabled={decidingId === selectedTask.id}
+                            className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                          >
+                            <XCircle className="w-4 h-4" /> Not Delivered On Time
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedDerived.isPending && selectedDerived.isMine && (
+                      <div className="flex flex-wrap items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => startTask(selectedTask.id)}
+                          disabled={startingId === selectedTask.id}
+                          className="text-sm font-bold text-[var(--accent)] hover:opacity-80 flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {startingId === selectedTask.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Play className="w-4 h-4" />
+                          )}
+                          Start Task
+                        </button>
+                        {selectedDerived.canReassign && reassigningId !== selectedTask.id && (
+                          <button
+                            type="button"
+                            onClick={() => startReassigning(selectedTask)}
+                            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"
+                          >
+                            <Repeat className="w-4 h-4" /> Reassign
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedDerived.canReassign && reassigningId === selectedTask.id && (
+                      <div className="space-y-2">
+                        <select
+                          value={reassignToEmail}
+                          onChange={(e) => setReassignToEmail(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                        >
+                          <option value="">Reassign to...</option>
+                          {assignableMembers
+                            .filter((m) => m.email !== email)
+                            .map((m) => (
+                              <option key={m.email} value={m.email}>
+                                {m.name} ({m.role})
+                              </option>
+                            ))}
+                        </select>
+                        {reassignError && <p className="text-xs font-bold text-rose-600">{reassignError}</p>}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => submitReassign(selectedTask.id)}
+                            disabled={isReassigning || !reassignToEmail}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                          >
+                            {isReassigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />}
+                            Reassign
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReassigningId(null)}
+                            disabled={isReassigning}
+                            className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedDerived.isInProgress && selectedDerived.isMine && (
+                      <div>
+                        {completingId === selectedTask.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={completionNotesDraft}
+                              onChange={(e) => setCompletionNotesDraft(e.target.value)}
+                              placeholder="Add notes about how this was completed..."
+                              rows={3}
+                              autoFocus
+                              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+                            />
+                            {selectedTask.due_at && new Date() > new Date(selectedTask.due_at) && (
+                              <textarea
+                                value={lateReasonDraft}
+                                onChange={(e) => setLateReasonDraft(e.target.value)}
+                                placeholder="This is past its deadline — explain why (required)..."
+                                rows={2}
+                                className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none bg-amber-50/40"
+                              />
+                            )}
+                            {completeError && <p className="text-xs font-bold text-rose-600">{completeError}</p>}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => submitComplete(selectedTask.id)}
+                                disabled={isCompleting || !completionNotesDraft.trim()}
+                                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                              >
+                                {isCompleting ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-4 h-4" />
+                                )}
+                                Mark Complete
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCompletingId(null)}
+                                disabled={isCompleting}
+                                className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startCompleting(selectedTask)}
+                            className="text-sm font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Mark Complete
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedDerived.isCompleted && !isSubmittingRevision && revisingId !== selectedTask.id && (
+                      <button
+                        type="button"
+                        onClick={() => startRevision(selectedTask)}
+                        className="text-sm font-bold text-violet-600 hover:text-violet-800 flex items-center gap-1.5"
+                      >
+                        <RotateCcw className="w-4 h-4" /> Request Revision
+                      </button>
+                    )}
+
+                    {selectedDerived.isCompleted && revisingId === selectedTask.id && (
+                      <div className="space-y-2">
+                        <textarea
+                          value={revisionReasonDraft}
+                          onChange={(e) => setRevisionReasonDraft(e.target.value)}
+                          placeholder="What needs to be revised?"
+                          rows={2}
+                          autoFocus
+                          className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none bg-violet-50/40"
+                        />
+                        <div>
+                          <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-700 mb-1.5">
+                            <CalendarClock className="w-3.5 h-3.5" /> New Deadline (optional)
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={revisionDueAtDraft}
+                            onChange={(e) => setRevisionDueAtDraft(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-violet-50/40"
+                          />
+                        </div>
+                        {revisionError && <p className="text-xs font-bold text-rose-600">{revisionError}</p>}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => submitRevision(selectedTask.id)}
+                            disabled={isSubmittingRevision || !revisionReasonDraft.trim()}
+                            className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-bold hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                          >
+                            {isSubmittingRevision ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-4 h-4" />
+                            )}
+                            Send Back for Revision
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRevisingId(null)}
+                            disabled={isSubmittingRevision}
+                            className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-10 text-center text-sm text-[var(--card-muted)]">
+                Select a task to view its full details.
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     );
   }
 
