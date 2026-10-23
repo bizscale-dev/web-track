@@ -798,13 +798,6 @@ export default function TasksPage() {
 
     return (
       <main className="max-w-[1600px] mx-auto w-full p-4 sm:p-6 lg:p-8">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
-        </Link>
-
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-600 text-white rounded-xl shadow-sm">

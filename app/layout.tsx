@@ -1,5 +1,6 @@
 import BatmanThemeToggle from "@/components/BatmanThemeToggle";
-import TopAuthBar from "@/components/TopAuthBar";
+import AppHeader from "@/components/AppHeader";
+import AppSidebar from "@/components/AppSidebar";
 import { AuthProvider } from "@/components/AuthProvider";
 import type { Metadata } from "next";
 import "./globals.css";
@@ -21,13 +22,16 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <TopAuthBar />
           <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[var(--bg)]">
             <div className="absolute -top-20 left-[-5rem] h-64 w-64 rounded-full bg-[var(--accent)]/10 blur-3xl" />
             <div className="absolute top-44 right-[-5rem] h-72 w-72 rounded-full bg-[var(--button)]/10 blur-3xl" />
           </div>
-          <div className="relative z-10 flex min-h-screen flex-col">
-            {children}
+          <div className="relative z-10 flex min-h-screen">
+            <AppSidebar />
+            <div className="flex min-h-screen flex-1 flex-col min-w-0">
+              <AppHeader />
+              {children}
+            </div>
           </div>
           <BatmanThemeToggle />
         </AuthProvider>

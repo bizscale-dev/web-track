@@ -46,6 +46,15 @@ export default function DashboardClient({
   const [activityLogError, setActivityLogError] = useState<string | null>(null);
   const [deletingWebsiteIds, setDeletingWebsiteIds] = useState<number[]>([]);
   const [search, setSearch] = useState("");
+
+  // Lets the global header search box (AppHeader) hand off a query via
+  // ?q= on first load — read directly from the URL (not useSearchParams,
+  // which would force this whole client component behind a Suspense
+  // boundary) and only ever applied once.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setSearch(q);
+  }, []);
   const [viewFilter, setViewFilter] = useState<"All" | "Not Started" | "In Progress" | "Completed">("In Progress");
   const [preciseStatusFilter, setPreciseStatusFilter] = useState<{ key: string; statuses: string[] } | null>(null);
 
