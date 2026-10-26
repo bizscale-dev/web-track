@@ -1175,7 +1175,7 @@ export default function TasksPage() {
                   <span className="text-xs font-bold text-slate-500 font-mono tracking-wide">
                     TSK-{selectedTask.id} · Task Inspector
                   </span>
-                  {isAdmin && selectedTask.assigned_by_email === email && (
+                  {(isAdmin || isManager) && selectedTask.assigned_by_email === email && (
                     <button
                       type="button"
                       onClick={() => deleteTask(selectedTask.id)}
