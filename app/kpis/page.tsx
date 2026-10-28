@@ -18,9 +18,21 @@ import {
   RotateCcw,
   Bug,
   User as UserIcon,
+  Users,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
+
+// Mirrors the locked role filter on Tasks Overview — HR sees Developer
+// (+ Manager) for now while the other role views get built out.
+const ROLE_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: "developer", label: "Developer" },
+  { value: "content_writer", label: "Content Writer" },
+  { value: "seo_person", label: "SEO Person" },
+  { value: "manager", label: "Manager" },
+  { value: "support", label: "Support" },
+  { value: "designer", label: "Designer" },
+];
 
 function monthLabel(date: Date): string {
   return date.toLocaleString(undefined, { month: "long", year: "numeric" });
@@ -58,6 +70,10 @@ export default function KpisPage() {
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // HR-only role filter — locked to "developer" for now (see
+  // ROLE_FILTER_OPTIONS comment). Doesn't affect admin/manager/designer,
+  // who still see everyone.
+  const [roleFilter] = useState<string>("developer");
 
   async function loadTeamMembers() {
     const { data } = await supabase
@@ -117,6 +133,12 @@ export default function KpisPage() {
     });
   };
 
+  const roleByEmail = useMemo(() => {
+    const roles: Record<string, string> = {};
+    for (const m of teamMembers) roles[m.email] = m.role;
+    return roles;
+  }, [teamMembers]);
+
   const people = useMemo<PersonKpi[]>(() => {
     const byEmail: Record<string, PersonKpi> = {};
 
@@ -136,8 +158,17 @@ export default function KpisPage() {
       byEmail[b.developer_email].bugs.push(b);
     }
 
-    return Object.values(byEmail).sort((a, b) => a.name.localeCompare(b.name));
-  }, [teamMembers, revisions, bugs]);
+    const everyone = Object.values(byEmail);
+    // HR's view is scoped to one role at a time — everyone else (admin,
+    // manager, designer) still sees every person. Managers are included
+    // alongside Developers since HR tracks them together for now.
+    const scoped =
+      role === "hr"
+        ? everyone.filter((p) => roleByEmail[p.email] === roleFilter || roleByEmail[p.email] === "manager")
+        : everyone;
+
+    return scoped.sort((a, b) => a.name.localeCompare(b.name));
+  }, [teamMembers, revisions, bugs, role, roleByEmail, roleFilter]);
 
   if (authLoading) {
     return (
@@ -182,7 +213,24 @@ export default function KpisPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-xl shadow-sm p-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          {role === "hr" && (
+            <div className="relative" title="More roles are coming soon — locked to Developer (+ Manager) for now">
+              <Users className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <select
+                value={roleFilter}
+                disabled
+                className="pl-8 pr-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-white border border-gray-200 text-gray-500 appearance-none cursor-not-allowed"
+              >
+                {ROLE_FILTER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-xl shadow-sm p-1">
           <button
             type="button"
             onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
@@ -202,6 +250,7 @@ export default function KpisPage() {
           >
             <ChevronRight className="w-4 h-4" />
           </button>
+          </div>
         </div>
       </div>
 
