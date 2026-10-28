@@ -125,8 +125,9 @@ export default function TasksOverviewPage() {
       const name = effectiveAssigneeName(task);
       if (!email) continue;
       // HR's view is scoped to one role at a time — everyone else (admin,
-      // manager, designer) still sees every person.
-      if (role === "hr" && roleByEmail[email] !== roleFilter) continue;
+      // manager, designer) still sees every person. Managers are included
+      // alongside Developers since HR tracks them together for now.
+      if (role === "hr" && roleByEmail[email] !== roleFilter && roleByEmail[email] !== "manager") continue;
       if (!groups[email]) groups[email] = { name, email, tasks: [] };
       groups[email].tasks.push(task);
     }
@@ -193,7 +194,7 @@ export default function TasksOverviewPage() {
 
         <div className="flex gap-2 flex-wrap items-center">
           {role === "hr" && (
-            <div className="relative" title="More roles are coming soon — locked to Developer for now">
+            <div className="relative" title="More roles are coming soon — locked to Developer (+ Manager) for now">
               <Users className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <select
                 value={roleFilter}
