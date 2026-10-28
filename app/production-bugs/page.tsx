@@ -20,6 +20,7 @@ import {
   Wrench,
   ImageIcon,
   X,
+  Repeat,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
@@ -70,6 +71,14 @@ export default function ProductionBugsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+
+  // Lets admin/manager hand a bug off to whoever actually needs to fix it —
+  // a manager who reported (or got auto-assigned) a bug isn't necessarily
+  // the right person to carry it, so it shouldn't stay stuck on them.
+  const [reassigningId, setReassigningId] = useState<number | null>(null);
+  const [reassignToEmail, setReassignToEmail] = useState("");
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [reassignError, setReassignError] = useState<string | null>(null);
 
   async function loadBugs() {
     setIsLoading(true);
@@ -229,6 +238,40 @@ export default function ProductionBugsPage() {
     if (!window.confirm("Delete this bug report? This can't be undone.")) return;
     const { error } = await supabase.from("production_bugs").delete().eq("id", bugId);
     if (!error) setBugs((current) => current.filter((b) => b.id !== bugId));
+  };
+
+  const startReassigning = (bug: ProductionBug) => {
+    setReassigningId(bug.id);
+    setReassignToEmail("");
+    setReassignError(null);
+  };
+
+  const submitReassign = async (bugId: number) => {
+    const assignee = teamMembers.find((m) => m.email === reassignToEmail);
+    if (!assignee) return;
+
+    setIsReassigning(true);
+    setReassignError(null);
+
+    const { error } = await supabase
+      .from("production_bugs")
+      .update({
+        developer_name: assignee.name,
+        developer_email: assignee.email,
+        developer_seen: false,
+      })
+      .eq("id", bugId);
+
+    setIsReassigning(false);
+
+    if (error) {
+      setReassignError(error.message);
+      return;
+    }
+
+    setReassigningId(null);
+    setReassignToEmail("");
+    await loadBugs();
   };
 
   const filteredBugs = useMemo(() => {
@@ -574,25 +617,75 @@ export default function ProductionBugsPage() {
                   </div>
                 </div>
 
-                {canToggleThis && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <button
-                      type="button"
-                      onClick={() => toggleStatus(bug)}
-                      disabled={isUpdatingThis}
-                      className={`text-sm font-bold flex items-center gap-1.5 disabled:opacity-50 ${
-                        isFixed ? "text-amber-600 hover:text-amber-800" : "text-emerald-700 hover:text-emerald-800"
-                      }`}
+                {(canToggleThis || canManage) && !(reassigningId === bug.id) && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-4">
+                    {canToggleThis && (
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(bug)}
+                        disabled={isUpdatingThis}
+                        className={`text-sm font-bold flex items-center gap-1.5 disabled:opacity-50 ${
+                          isFixed ? "text-amber-600 hover:text-amber-800" : "text-emerald-700 hover:text-emerald-800"
+                        }`}
+                      >
+                        {isUpdatingThis ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : isFixed ? (
+                          <RotateCcw className="w-4 h-4" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        {isFixed ? "Reopen" : "Mark Fixed"}
+                      </button>
+                    )}
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => startReassigning(bug)}
+                        className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"
+                      >
+                        <Repeat className="w-4 h-4" /> Reassign
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {canManage && reassigningId === bug.id && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                    <select
+                      value={reassignToEmail}
+                      onChange={(e) => setReassignToEmail(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
                     >
-                      {isUpdatingThis ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : isFixed ? (
-                        <RotateCcw className="w-4 h-4" />
-                      ) : (
-                        <CheckCircle2 className="w-4 h-4" />
-                      )}
-                      {isFixed ? "Reopen" : "Mark Fixed"}
-                    </button>
+                      <option value="">Reassign to...</option>
+                      {teamMembers
+                        .filter((m) => m.email !== bug.developer_email)
+                        .map((m) => (
+                          <option key={m.email} value={m.email}>
+                            {m.name} ({m.role})
+                          </option>
+                        ))}
+                    </select>
+                    {reassignError && <p className="text-xs font-bold text-rose-600">{reassignError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => submitReassign(bug.id)}
+                        disabled={isReassigning || !reassignToEmail}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      >
+                        {isReassigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />}
+                        Reassign
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReassigningId(null)}
+                        disabled={isReassigning}
+                        className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
