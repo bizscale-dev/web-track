@@ -29,9 +29,22 @@ import {
   User as UserIcon,
   ListChecks,
   ClipboardList,
+  Users,
 } from "lucide-react";
 
 type DateFilter = "today" | "week" | "all";
+
+// Mirrors the role values used across the rest of the app (admin/page.tsx
+// role dropdowns, useNavItems). HR locks this to "developer" for now — the
+// dropdown itself stays disabled until the other role views are ready.
+const ROLE_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: "developer", label: "Developer" },
+  { value: "content_writer", label: "Content Writer" },
+  { value: "seo_person", label: "SEO Person" },
+  { value: "manager", label: "Manager" },
+  { value: "support", label: "Support" },
+  { value: "designer", label: "Designer" },
+];
 
 function isWithinDays(dateStr: string, days: number) {
   const date = new Date(dateStr);
@@ -55,6 +68,11 @@ export default function TasksOverviewPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [avatarsByEmail, setAvatarsByEmail] = useState<Record<string, string>>({});
+  const [roleByEmail, setRoleByEmail] = useState<Record<string, string>>({});
+  // HR-only role filter — locked to "developer" for now (see
+  // ROLE_FILTER_OPTIONS comment). Doesn't affect admin/manager/designer,
+  // who still see everyone.
+  const [roleFilter] = useState<string>("developer");
 
   async function fetchTasks() {
     setIsLoading(true);
@@ -66,19 +84,22 @@ export default function TasksOverviewPage() {
     setIsLoading(false);
   }
 
-  async function fetchAvatars() {
-    const { data } = await supabase.from("team_members").select("email, avatar_url");
-    const map: Record<string, string> = {};
-    for (const m of (data as { email: string; avatar_url: string | null }[]) || []) {
-      if (m.avatar_url) map[m.email] = m.avatar_url;
+  async function fetchTeamMembers() {
+    const { data } = await supabase.from("team_members").select("email, avatar_url, role");
+    const avatars: Record<string, string> = {};
+    const roles: Record<string, string> = {};
+    for (const m of (data as { email: string; avatar_url: string | null; role: string }[]) || []) {
+      if (m.avatar_url) avatars[m.email] = m.avatar_url;
+      roles[m.email] = m.role;
     }
-    setAvatarsByEmail(map);
+    setAvatarsByEmail(avatars);
+    setRoleByEmail(roles);
   }
 
   useEffect(() => {
     if (canView) {
       fetchTasks();
-      fetchAvatars();
+      fetchTeamMembers();
     }
   }, [canView]);
 
@@ -103,11 +124,14 @@ export default function TasksOverviewPage() {
       const email = effectiveAssigneeEmail(task);
       const name = effectiveAssigneeName(task);
       if (!email) continue;
+      // HR's view is scoped to one role at a time — everyone else (admin,
+      // manager, designer) still sees every person.
+      if (role === "hr" && roleByEmail[email] !== roleFilter) continue;
       if (!groups[email]) groups[email] = { name, email, tasks: [] };
       groups[email].tasks.push(task);
     }
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
-  }, [filteredTasks]);
+  }, [filteredTasks, role, roleByEmail, roleFilter]);
 
   // Company-wide counters for the summary strip — gives whoever's looking
   // (especially a view-only Designer) the big picture before drilling into
@@ -167,7 +191,23 @@ export default function TasksOverviewPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center">
+          {role === "hr" && (
+            <div className="relative" title="More roles are coming soon — locked to Developer for now">
+              <Users className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <select
+                value={roleFilter}
+                disabled
+                className="pl-8 pr-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-white border border-gray-200 text-gray-500 appearance-none cursor-not-allowed"
+              >
+                {ROLE_FILTER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {(["today", "week", "all"] as DateFilter[]).map((filter) => (
             <button
               key={filter}
