@@ -23,6 +23,7 @@ import {
   Globe,
   FileText,
   Sparkles,
+  CalendarClock,
 } from "lucide-react";
 
 type DateFilter = "today" | "week" | "all";
@@ -34,6 +35,14 @@ function isWithinDays(dateStr: string, days: number) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   return date >= cutoff;
+}
+
+// A draft from a past day stays overdue unless an admin/manager has
+// extended it to a still-future deadline.
+function isDraftOverdue(report: EodReportWithEntries, today: string) {
+  if (report.status !== "draft" || report.report_date >= today) return false;
+  if (report.extended_due_at && new Date(report.extended_due_at) > new Date()) return false;
+  return true;
 }
 
 function formatRole(r: string | undefined) {
@@ -53,6 +62,7 @@ const DATE_FILTER_LABEL: Record<DateFilter, string> = {
 export default function EodOverviewPage() {
   const { role, loading: authLoading } = useAuth();
   const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
+  const canExtend = role === "admin" || role === "manager";
 
   const [reports, setReports] = useState<EodReportWithEntries[]>([]);
   const [teamByEmail, setTeamByEmail] = useState<Record<string, TeamMember>>({});
@@ -61,6 +71,11 @@ export default function EodOverviewPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  const [extendingId, setExtendingId] = useState<number | null>(null);
+  const [extendDueAtDraft, setExtendDueAtDraft] = useState("");
+  const [isExtending, setIsExtending] = useState(false);
+  const [extendError, setExtendError] = useState<string | null>(null);
 
   useEffect(() => {
     if (canView) {
@@ -86,6 +101,34 @@ export default function EodOverviewPage() {
     const map: Record<string, TeamMember> = {};
     for (const m of (data as TeamMember[]) || []) map[m.email] = m;
     setTeamByEmail(map);
+  };
+
+  const startExtend = (reportId: number) => {
+    setExtendingId(reportId);
+    setExtendError(null);
+    const base = new Date();
+    base.setDate(base.getDate() + 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setExtendDueAtDraft(
+      `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`
+    );
+  };
+
+  const submitExtend = async (reportId: number) => {
+    if (!extendDueAtDraft) return;
+    setIsExtending(true);
+    setExtendError(null);
+    const { error: extendErr } = await supabase
+      .from("eod_reports")
+      .update({ extended_due_at: new Date(extendDueAtDraft).toISOString() })
+      .eq("id", reportId);
+    setIsExtending(false);
+    if (extendErr) {
+      setExtendError(extendErr.message);
+      return;
+    }
+    setExtendingId(null);
+    await fetchReports();
   };
 
   const toggleExpanded = (id: number) => {
@@ -148,7 +191,7 @@ export default function EodOverviewPage() {
     const total = filteredReports.length;
     const submitted = filteredReports.filter((r) => r.status === "submitted").length;
     const inProgress = filteredReports.filter((r) => r.status === "draft" && r.report_date === today).length;
-    const actionRequired = filteredReports.filter((r) => r.status === "draft" && r.report_date < today).length;
+    const actionRequired = filteredReports.filter((r) => isDraftOverdue(r, today)).length;
     const submittedPct = total > 0 ? Math.round((submitted / total) * 100) : 0;
     return { total, submitted, inProgress, actionRequired, submittedPct };
   }, [filteredReports, today]);
@@ -388,7 +431,8 @@ export default function EodOverviewPage() {
                       )
                     );
                     const newPageCount = report.eod_entries.filter((e) => e.is_new_page).length;
-                    const isOverdueDraft = report.status === "draft" && report.report_date < today;
+                    const isOverdueDraft = isDraftOverdue(report, today);
+                    const isExtended = !!report.extended_due_at && new Date(report.extended_due_at) > new Date();
 
                     return (
                       <div
@@ -460,7 +504,64 @@ export default function EodOverviewPage() {
                                   <Sparkles className="w-3 h-3" /> {newPageCount} New
                                 </span>
                               )}
+                              {isExtended && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-sky-50 text-sky-600 border border-sky-100">
+                                  <CalendarClock className="w-3 h-3" /> Extended to {formatTime(report.extended_due_at!)}
+                                </span>
+                              )}
                             </div>
+
+                            {canExtend && report.status === "draft" && report.report_date < today && (
+                              <div className="px-5 pb-4">
+                                {extendingId === report.id ? (
+                                  <div className="rounded-xl bg-rose-50/60 border border-rose-200/80 p-3 space-y-2">
+                                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-700">
+                                      <CalendarClock className="w-3.5 h-3.5" /> New Deadline
+                                    </label>
+                                    <input
+                                      type="datetime-local"
+                                      value={extendDueAtDraft}
+                                      onChange={(e) => setExtendDueAtDraft(e.target.value)}
+                                      className="w-full px-3 py-2 text-sm border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+                                    />
+                                    {extendError && <p className="text-xs font-bold text-rose-600">{extendError}</p>}
+                                    <div className="flex gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => submitExtend(report.id)}
+                                        disabled={isExtending || !extendDueAtDraft}
+                                        className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                                      >
+                                        {isExtending ? (
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <CalendarClock className="w-3.5 h-3.5" />
+                                        )}
+                                        Extend Deadline
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setExtendingId(null)}
+                                        disabled={isExtending}
+                                        className="px-3 py-1.5 text-gray-500 rounded-lg text-xs font-medium hover:bg-gray-100 transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => startExtend(report.id)}
+                                    className="text-xs font-bold text-rose-700 hover:text-rose-800 flex items-center gap-1.5"
+                                  >
+                                    <CalendarClock className="w-3.5 h-3.5" />
+                                    {isExtended ? "Extend Further" : "Extend Deadline — it's past due"}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
                             <div className="border-t border-gray-100 divide-y divide-gray-100">
                               {entriesBySite.map((group) => {
                                 const siteDomain = group.items[0]?.site_domain;

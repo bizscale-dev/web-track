@@ -185,6 +185,13 @@ export default function TasksPage() {
   const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
   const [revisionError, setRevisionError] = useState<string | null>(null);
 
+  // Admin/Manager: push an overdue task's deadline forward so it stops
+  // being flagged late — the task itself isn't touched, just due_at.
+  const [extendingId, setExtendingId] = useState<number | null>(null);
+  const [extendDueAtDraft, setExtendDueAtDraft] = useState("");
+  const [isExtending, setIsExtending] = useState(false);
+  const [extendError, setExtendError] = useState<string | null>(null);
+
   // Admin/Manager master-detail view only — everyone else keeps the plain
   // card list below.
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
@@ -517,6 +524,36 @@ export default function TasksPage() {
     }
     await supabase.from("assigned_tasks").update(update).eq("id", taskId);
     setDecidingId(null);
+    await loadTasks();
+  };
+
+  const startExtend = (task: AssignedTask) => {
+    setExtendingId(task.id);
+    setExtendError(null);
+    // Default to a day beyond the missed deadline (or now, if it somehow has
+    // no due_at) — just a sane starting point, not a hard rule.
+    const base = task.due_at && new Date(task.due_at) > new Date() ? new Date(task.due_at) : new Date();
+    base.setDate(base.getDate() + 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setExtendDueAtDraft(
+      `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`
+    );
+  };
+
+  const submitExtend = async (taskId: number) => {
+    if (!extendDueAtDraft) return;
+    setIsExtending(true);
+    setExtendError(null);
+    const { error: extendErr } = await supabase
+      .from("assigned_tasks")
+      .update({ due_at: new Date(extendDueAtDraft).toISOString() })
+      .eq("id", taskId);
+    setIsExtending(false);
+    if (extendErr) {
+      setExtendError(extendErr.message);
+      return;
+    }
+    setExtendingId(null);
     await loadTasks();
   };
 
@@ -1410,6 +1447,52 @@ export default function TasksPage() {
                   )}
 
                   <div className="border-t border-[var(--card-border)] pt-4 space-y-3">
+                    {(isAdmin || isManager) && selectedDerived.isOverdue && !selectedDerived.isCompleted && (
+                      <div className="rounded-2xl bg-rose-50/60 border border-rose-200/80 p-4 space-y-2.5">
+                        {extendingId === selectedTask.id ? (
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-700">
+                              <CalendarClock className="w-3.5 h-3.5" /> New Deadline
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={extendDueAtDraft}
+                              onChange={(e) => setExtendDueAtDraft(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+                            />
+                            {extendError && <p className="text-xs font-bold text-rose-600">{extendError}</p>}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => submitExtend(selectedTask.id)}
+                                disabled={isExtending || !extendDueAtDraft}
+                                className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                              >
+                                {isExtending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
+                                Extend Deadline
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setExtendingId(null)}
+                                disabled={isExtending}
+                                className="px-4 py-2 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startExtend(selectedTask)}
+                            className="text-sm font-bold text-rose-700 hover:text-rose-800 flex items-center gap-1.5"
+                          >
+                            <CalendarClock className="w-4 h-4" /> Extend Deadline — it's past due
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {selectedDerived.managerNeedsToDecide && (
                       <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-amber-50/60 border border-amber-200/80 p-4 space-y-2.5 shadow-sm">
                         <p className="text-xs font-bold text-amber-700 flex items-center gap-1.5">

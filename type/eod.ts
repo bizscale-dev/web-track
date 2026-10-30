@@ -25,6 +25,9 @@ export type EodReport = {
   submitted_at: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  // Set by an admin/manager "Extend Deadline" action — a draft stops
+  // counting as overdue while this is set and still in the future.
+  extended_due_at?: string | null;
 };
 
 export type EodEntry = {
