@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthProvider";
-import { Search, User as UserIcon, Boxes } from "lucide-react";
+import { Search, User as UserIcon } from "lucide-react";
+import LogoMark from "@/components/LogoMark";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell";
 import NavDrawer from "@/components/NavDrawer";
@@ -56,9 +57,9 @@ export default function AppHeader() {
                 onClick={toggle}
                 title="Show sidebar"
                 aria-label="Show sidebar"
-                className="hidden lg:flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-colors shrink-0"
+                className="hidden lg:flex items-center justify-center w-10 h-10 rounded-xl shadow-sm transition-transform hover:scale-105 shrink-0 overflow-hidden"
               >
-                <Boxes className="w-[18px] h-[18px]" />
+                <LogoMark open={false} className="w-full h-full" />
               </button>
             )}
             {role !== "user" && (

@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
-import { applyTheme, DEFAULT_THEME, type ThemeColors } from "@/lib/theme";
+import { applyTheme, DEFAULT_THEME } from "@/lib/theme";
 
 const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const SESSION_STARTED_AT_KEY = "website-crm-session-started-at";
@@ -14,7 +14,6 @@ type AuthContextType = {
   name: string;
   email: string;
   avatar: string; // NEW
-  theme: ThemeColors;
   loading: boolean;
 };
 
@@ -24,7 +23,6 @@ const AuthContext = createContext<AuthContextType>({
   name: "",
   email: "",
   avatar: "",
-  theme: DEFAULT_THEME,
   loading: true,
 });
 
@@ -34,12 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [avatar, setAvatar] = useState<string>("");
-  const [theme, setTheme] = useState<ThemeColors>(DEFAULT_THEME);
   const [loading, setLoading] = useState(true);
 
+  // One company-wide theme for everyone — applied once, not per user.
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    applyTheme(DEFAULT_THEME);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -72,19 +70,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole(nextSession.user.user_metadata?.role || "user");
         setName(nextSession.user.user_metadata?.name || "Unknown Operator");
         setAvatar(nextSession.user.user_metadata?.avatar_url || "");
-        setTheme({
-          background: nextSession.user.user_metadata?.theme_bg || DEFAULT_THEME.background,
-          card: nextSession.user.user_metadata?.theme_card || DEFAULT_THEME.card,
-          button: nextSession.user.user_metadata?.theme_button || DEFAULT_THEME.button,
-          accent: nextSession.user.user_metadata?.theme_accent || DEFAULT_THEME.accent,
-        });
         setEmail(nextSession.user.email || "");
       } else {
         setSession(null);
         setRole("user");
         setName("");
         setAvatar("");
-        setTheme(DEFAULT_THEME);
         setEmail("");
       }
     };
@@ -141,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, role, name, email, avatar, theme, loading }}>
+    <AuthContext.Provider value={{ session, role, name, email, avatar, loading }}>
       {children}
     </AuthContext.Provider>
   );

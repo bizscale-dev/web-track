@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f8fc;
+  --background: #f3fbf9;
   --foreground: #0f172a;
 
-  /* Per-user 3-color theme — overridden at runtime per signed-in user
-     (see lib/theme.ts + components/AuthProvider.tsx). These are the
-     pre-login / unset-preference defaults, matching the app's original look. */
-  --bg: #f6f8fc;
+  /* Company-wide theme (see lib/theme.ts + components/AuthProvider.tsx),
+     matching businessupscalers.com's brand teal. These are also the
+     pre-JS-apply defaults used for the very first paint. */
+  --bg: #f3fbf9;
   --bg-foreground: #0f172a;
   --bg-muted: #64748b;
   --card: #ffffff;
   --card-border: #f1f5f9;
   --card-foreground: #0f172a;
   --card-muted: #64748b;
-  --button: #2563eb;
-  --button-hover: #1d4ed8;
-  --button-text: #ffffff;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-light: #eff6ff;
-  --accent-text: #ffffff;
+  --button: #0cefc9;
+  --button-hover: #0bd1b0;
+  --button-text: #0f172a;
+  --accent: #0cefc9;
+  --accent-hover: #0bd1b0;
+  --accent-light: #e5fdf8;
+  --accent-text: #0f172a;
 }
 
 @theme inline {
@@ -41,7 +41,7 @@ body {
 }
 
 ::selection {
-  background: rgba(59, 130, 246, 0.18);
+  background: rgba(12, 239, 201, 0.25);
 }
 
 input,

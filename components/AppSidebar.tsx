@@ -6,7 +6,8 @@ import { useAuth } from "./AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { useNavItems } from "./useNavItems";
 import { useSidebar } from "./SidebarContext";
-import { Boxes, Lock, LogOut } from "lucide-react";
+import { Lock, LogOut } from "lucide-react";
+import LogoMark from "./LogoMark";
 
 // Persistent desktop nav (hidden lg:flex) — light sidebar with a solid
 // active pill, matching the reference look. NavDrawer still handles mobile
@@ -43,9 +44,7 @@ export default function AppSidebar() {
         title="Hide sidebar"
         className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-100 shrink-0 text-left hover:bg-slate-50 transition-colors"
       >
-        <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shrink-0 shadow-[0_6px_14px_-4px_rgba(37,99,235,0.5)]">
-          <Boxes className="w-[18px] h-[18px]" />
-        </span>
+        <LogoMark open={!collapsed} className="w-8 h-8 shrink-0 shadow-[0_6px_14px_-4px_rgba(26,71,65,0.5)] rounded-xl" />
         <span className="text-base font-black text-slate-900 tracking-tight">Bizscale</span>
       </button>
 

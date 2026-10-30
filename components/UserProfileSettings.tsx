@@ -2,108 +2,16 @@
 
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { X, Lock, User, Loader2, CheckCircle2, Camera, Palette } from "lucide-react";
+import { X, Lock, User, Loader2, CheckCircle2, Camera } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useRouter } from "next/navigation";
 import { cascadeNameUpdate, cascadeAvatarUpdate } from "@/app/actions";
-import { applyTheme, DEFAULT_THEME, type ThemeColors } from "@/lib/theme";
-
-// A broad spread across the hue wheel, offered as one-click presets —
-// "any color" is still available via the native picker next to each row.
-const VIVID_PRESETS = [
-  "#2563eb", // blue (default)
-  "#1d4ed8",
-  "#4f46e5",
-  "#7c3aed",
-  "#9333ea",
-  "#c026d3",
-  "#db2777",
-  "#e11d48",
-  "#dc2626",
-  "#ea580c",
-  "#d97706",
-  "#ca8a04",
-  "#65a30d",
-  "#16a34a",
-  "#059669",
-  "#0d9488",
-  "#0891b2",
-  "#0284c7",
-  "#475569",
-  "#1e293b",
-];
-
-const BACKGROUND_PRESETS = [
-  "#f6f8fc", // default
-  "#ffffff",
-  "#f8fafc",
-  "#f1f5f9",
-  "#fef2f2",
-  "#fff7ed",
-  "#fefce8",
-  "#f0fdf4",
-  "#ecfdf5",
-  "#f0fdfa",
-  "#eff6ff",
-  "#eef2ff",
-  "#faf5ff",
-  "#fdf4ff",
-  "#fdf2f8",
-  "#0f172a", // slate dark
-];
-
-type ColorRowProps = {
-  label: string;
-  value: string;
-  presets: string[];
-  saving: boolean;
-  onChange: (hex: string) => void;
-};
-
-function ColorRow({ label, value, presets, saving, onChange }: ColorRowProps) {
-  return (
-    <div>
-      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-        <Palette className="w-3.5 h-3.5" /> {label}
-        {saving && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
-      </label>
-      <div className="flex flex-wrap items-center gap-2">
-        {presets.map((hex) => (
-          <button
-            key={hex}
-            type="button"
-            onClick={() => onChange(hex)}
-            title={hex}
-            className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
-              value.toLowerCase() === hex.toLowerCase() ? "border-slate-900" : "border-white shadow-sm"
-            }`}
-            style={{ backgroundColor: hex }}
-          />
-        ))}
-        <label
-          className="relative w-7 h-7 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-slate-400 transition-colors overflow-hidden shrink-0"
-          title="Pick any color"
-        >
-          <input
-            type="color"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          />
-          <Palette className="w-3 h-3 text-slate-400 pointer-events-none" />
-        </label>
-      </div>
-    </div>
-  );
-}
 
 export default function UserProfileSettings({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const { session, name: currentName, email, avatar: currentAvatar, theme: currentTheme } = useAuth();
+  const { session, name: currentName, email, avatar: currentAvatar } = useAuth();
   const [newName, setNewName] = useState(currentName || "");
   const [newPassword, setNewPassword] = useState("");
-  const [theme, setThemeState] = useState<ThemeColors>(currentTheme || DEFAULT_THEME);
-  const [savingKey, setSavingKey] = useState<keyof ThemeColors | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
@@ -116,27 +24,6 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const metadataKey: Record<keyof ThemeColors, string> = {
-    background: "theme_bg",
-    card: "theme_card",
-    button: "theme_button",
-    accent: "theme_accent",
-  };
-
-  const handleThemeChange = async (key: keyof ThemeColors, hex: string) => {
-    const nextTheme = { ...theme, [key]: hex };
-    setThemeState(nextTheme);
-    applyTheme(nextTheme); // instant preview, doesn't wait on the network round-trip
-    setSavingKey(key);
-    const { error } = await supabase.auth.updateUser({ data: { [metadataKey[key]]: hex } });
-    setSavingKey(null);
-    if (error) {
-      setMessage({ type: "error", text: "Couldn't save theme color: " + error.message });
-      setThemeState(currentTheme);
-      applyTheme(currentTheme);
-    }
-  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -270,38 +157,6 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
               className="hidden"
             />
             <span className="text-xs font-semibold text-slate-500 mt-2">Click to change picture</span>
-          </div>
-
-          {/* Theme — background / button / accent, each applies immediately and follows this account everywhere it logs in */}
-          <div className="space-y-4 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
-            <ColorRow
-              label="Background"
-              value={theme.background}
-              presets={BACKGROUND_PRESETS}
-              saving={savingKey === "background"}
-              onChange={(hex) => handleThemeChange("background", hex)}
-            />
-            <ColorRow
-              label="Card"
-              value={theme.card}
-              presets={BACKGROUND_PRESETS}
-              saving={savingKey === "card"}
-              onChange={(hex) => handleThemeChange("card", hex)}
-            />
-            <ColorRow
-              label="Button"
-              value={theme.button}
-              presets={VIVID_PRESETS}
-              saving={savingKey === "button"}
-              onChange={(hex) => handleThemeChange("button", hex)}
-            />
-            <ColorRow
-              label="Accent"
-              value={theme.accent}
-              presets={VIVID_PRESETS}
-              saving={savingKey === "accent"}
-              onChange={(hex) => handleThemeChange("accent", hex)}
-            />
           </div>
 
           <form onSubmit={handleUpdate} className="space-y-5">

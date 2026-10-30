@@ -11,7 +11,7 @@ type SidebarContextType = {
 };
 
 const SidebarContext = createContext<SidebarContextType>({
-  collapsed: false,
+  collapsed: true,
   setCollapsed: () => {},
   toggle: () => {},
 });
@@ -21,13 +21,17 @@ const SidebarContext = createContext<SidebarContextType>({
 // link click can collapse the overlay itself, instead of each component
 // keeping its own disconnected copy of this state.
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsedState] = useState(false);
+  // Collapsed by default on every fresh login — only stays expanded if the
+  // user explicitly expanded it before (stored "0"), not just because no
+  // preference has been saved yet.
+  const [collapsed, setCollapsedState] = useState(true);
 
   useEffect(() => {
     try {
-      setCollapsedState(window.localStorage.getItem(COLLAPSED_KEY) === "1");
+      const stored = window.localStorage.getItem(COLLAPSED_KEY);
+      if (stored !== null) setCollapsedState(stored === "1");
     } catch {
-      // Private browsing / blocked storage — just stay expanded.
+      // Private browsing / blocked storage — just stay collapsed.
     }
   }, []);
 

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Shield, Mail, KeyRound, Loader2, ArrowRight } from "lucide-react";
+import { Mail, KeyRound, Loader2, ArrowRight } from "lucide-react";
+import LogoMark from "@/components/LogoMark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,17 +36,15 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-slate-50 p-4 relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-blue-600/10 to-transparent pointer-events-none" />
-      <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 -left-24 w-72 h-72 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#0cefc9]/10 to-transparent pointer-events-none" />
+      <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#0cefc9]/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 -left-24 w-72 h-72 bg-[#1a4741]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md z-10">
         <div className="bg-white/95 border border-white shadow-[0_24px_80px_rgba(15,23,42,0.1)] rounded-[32px] p-8 sm:p-10">
           
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 mb-6">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
+            <LogoMark className="w-16 h-16 rounded-2xl shadow-lg shadow-[#1a4741]/20 mb-6" />
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Secure Login</h1>
             <p className="text-sm text-slate-500 mt-2 font-medium">Enter your credentials to access the CRM</p>
           </div>
@@ -66,7 +65,7 @@ export default function LoginPage() {
                   placeholder="Email Address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all font-medium"
+                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-[#0cefc9]/20 focus:border-[#0cefc9] transition-all font-medium"
                 />
               </div>
 
@@ -78,7 +77,7 @@ export default function LoginPage() {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all font-medium font-mono"
+                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-[#0cefc9]/20 focus:border-[#0cefc9] transition-all font-medium font-mono"
                 />
               </div>
             </div>
