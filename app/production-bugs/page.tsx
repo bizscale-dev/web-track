@@ -72,6 +72,18 @@ export default function ProductionBugsPage() {
 
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
+  // Deep link from KPIs ("view this bug") — read directly from the URL
+  // (not useSearchParams, which would force this page behind a Suspense
+  // boundary) so a bug linked from outside the current status filter still
+  // gets surfaced and scrolled into view.
+  const [highlightBugId, setHighlightBugId] = useState<number | null>(null);
+  const bugRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("bugId");
+    if (id) setHighlightBugId(Number(id));
+  }, []);
+
   // Lets admin/manager hand a bug off to whoever actually needs to fix it —
   // a manager who reported (or got auto-assigned) a bug isn't necessarily
   // the right person to carry it, so it shouldn't stay stuck on them.
@@ -280,6 +292,20 @@ export default function ProductionBugsPage() {
   }, [visibleBugs, statusFilter]);
 
   const openCount = visibleBugs.filter((b) => b.status === "open").length;
+
+  // Make sure a deep-linked bug is actually visible under the current status
+  // filter, then scroll it into view once its card exists in the DOM.
+  useEffect(() => {
+    if (highlightBugId === null) return;
+    const target = visibleBugs.find((b) => b.id === highlightBugId);
+    if (!target) return;
+    if (statusFilter !== "all" && target.status !== statusFilter) {
+      setStatusFilter("all");
+      return;
+    }
+    const node = bugRefs.current[highlightBugId];
+    node?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightBugId, visibleBugs, statusFilter]);
 
   if (authLoading) {
     return (
@@ -532,12 +558,17 @@ export default function ProductionBugsPage() {
             // whoever reported it.
             const canToggleThis = canManage || bug.developer_email === email;
 
+            const isHighlighted = bug.id === highlightBugId;
+
             return (
               <div
                 key={bug.id}
+                ref={(node) => {
+                  bugRefs.current[bug.id] = node;
+                }}
                 className={`rounded-2xl border shadow-sm p-4 transition-all ${
                   isFixed ? "bg-emerald-50/50 border-emerald-200" : "bg-rose-50/40 border-rose-200"
-                }`}
+                } ${isHighlighted ? "ring-2 ring-[var(--accent)] ring-offset-2" : ""}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">

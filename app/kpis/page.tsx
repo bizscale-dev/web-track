@@ -516,7 +516,10 @@ export default function KpisPage() {
                     {person.bugs.map((b) => (
                       <div key={`bug-${b.id}`} className="px-5 py-3">
                         <p className="text-sm font-bold text-[var(--card-foreground)] flex items-center gap-1.5">
-                          <Bug className="w-3.5 h-3.5 text-rose-500 shrink-0" /> {b.title}
+                          <Bug className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <Link href={`/production-bugs?bugId=${b.id}`} className="hover:text-[var(--accent)] hover:underline">
+                            {b.title}
+                          </Link>
                           <span
                             className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                               b.status === "fixed" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
