@@ -19,9 +19,14 @@ import {
   Bug,
   User as UserIcon,
   Users,
+  Search,
+  ClipboardList,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
+type ActivityFilter = "all" | "revisions" | "open_bugs" | "fixed_bugs";
 
 // Mirrors the locked role filter on Tasks Overview — HR sees Developer
 // (+ Manager) for now while the other role views get built out.
@@ -52,6 +57,10 @@ function daysAgo(dateStr: string): string {
   return `${days} days ago`;
 }
 
+function formatRole(r: string | undefined) {
+  return r ? r.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Team Member";
+}
+
 type PersonKpi = {
   name: string;
   email: string;
@@ -70,6 +79,8 @@ export default function KpisPage() {
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   // HR-only role filter — locked to "developer" for now (see
   // ROLE_FILTER_OPTIONS comment). Doesn't affect admin/manager/designer,
   // who still see everyone.
@@ -162,13 +173,41 @@ export default function KpisPage() {
     // HR's view is scoped to one role at a time — everyone else (admin,
     // manager, designer) still sees every person. Managers are included
     // alongside Developers since HR tracks them together for now.
-    const scoped =
+    let scoped =
       role === "hr"
         ? everyone.filter((p) => roleByEmail[p.email] === roleFilter || roleByEmail[p.email] === "manager")
         : everyone;
 
+    if (activityFilter !== "all") {
+      scoped = scoped.filter((p) => {
+        if (activityFilter === "revisions") return p.revisions.length > 0;
+        if (activityFilter === "open_bugs") return p.bugs.some((b) => b.status !== "fixed");
+        return p.bugs.some((b) => b.status === "fixed");
+      });
+    }
+
+    const q = searchQuery.trim().toLowerCase();
+    if (q) scoped = scoped.filter((p) => p.name.toLowerCase().includes(q));
+
     return scoped.sort((a, b) => a.name.localeCompare(b.name));
-  }, [teamMembers, revisions, bugs, role, roleByEmail, roleFilter]);
+  }, [teamMembers, revisions, bugs, role, roleByEmail, roleFilter, activityFilter, searchQuery]);
+
+  const summary = useMemo(() => {
+    const scopedEmails = new Set(people.map((p) => p.email));
+    const scopedRevisions =
+      role === "hr" ? revisions.filter((r) => scopedEmails.has(r.assignee_email)) : revisions;
+    const scopedBugs = role === "hr" ? bugs.filter((b) => scopedEmails.has(b.developer_email)) : bugs;
+    const openBugs = scopedBugs.filter((b) => b.status !== "fixed").length;
+    const fixedBugs = scopedBugs.length - openBugs;
+    return {
+      totalRevisions: scopedRevisions.length,
+      totalBugs: scopedBugs.length,
+      openBugs,
+      fixedBugs,
+    };
+  }, [people, revisions, bugs, role]);
+
+  const filtersActive = !!searchQuery || activityFilter !== "all";
 
   if (authLoading) {
     return (
@@ -189,7 +228,7 @@ export default function KpisPage() {
   }
 
   return (
-    <main className="p-4 sm:p-8 max-w-4xl mx-auto w-full">
+    <main className="max-w-[1600px] mx-auto w-full p-4 sm:p-6 lg:p-8">
       <Link
         href="/dashboard"
         className="inline-flex items-center text-sm text-[var(--accent)] hover:opacity-80 mb-4 transition-colors"
@@ -197,13 +236,18 @@ export default function KpisPage() {
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
       </Link>
 
-      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-emerald-600 text-white rounded-xl shadow-sm">
+          <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-[0_8px_20px_-6px_rgba(5,150,105,0.5)]">
             <BarChart3 className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-[var(--bg-foreground)]">KPIs</h1>
+            <h1 className="text-3xl font-black tracking-tight text-[var(--bg-foreground)] flex items-center gap-2 flex-wrap">
+              KPIs
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Sync
+              </span>
+            </h1>
             <p className="text-[var(--bg-muted)] text-sm mt-1">
               Revisions and production bugs, per person, per month.{" "}
               <Link href="/production-bugs" className="text-[var(--accent)] hover:opacity-80 font-semibold">
@@ -220,7 +264,7 @@ export default function KpisPage() {
               <select
                 value={roleFilter}
                 disabled
-                className="pl-8 pr-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-white border border-gray-200 text-gray-500 appearance-none cursor-not-allowed"
+                className="pl-8 pr-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full bg-white border border-gray-200 text-gray-500 appearance-none cursor-not-allowed"
               >
                 {ROLE_FILTER_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -230,27 +274,143 @@ export default function KpisPage() {
               </select>
             </div>
           )}
-          <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-xl shadow-sm p-1">
-          <button
-            type="button"
-            onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-            className="p-2 rounded-lg hover:bg-gray-100 text-[var(--card-muted)]"
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm font-bold text-[var(--card-foreground)] px-2 min-w-[140px] text-center">
-            {monthLabel(monthCursor)}
-          </span>
-          <button
-            type="button"
-            onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-            className="p-2 rounded-lg hover:bg-gray-100 text-[var(--card-muted)]"
-            aria-label="Next month"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full shadow-sm p-1">
+            <button
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              className="p-2 rounded-full hover:bg-gray-100 text-[var(--card-muted)]"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-bold text-[var(--card-foreground)] px-2 min-w-[140px] text-center">
+              {monthLabel(monthCursor)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              className="p-2 rounded-full hover:bg-gray-100 text-[var(--card-muted)]"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
+        </div>
+      </div>
+
+      {!isLoading && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Total Revisions</p>
+                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.totalRevisions}</p>
+              </div>
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-violet-50 text-violet-600 shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--card-muted)] mt-2">Sent back for rework this month</p>
+          </div>
+
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Total Bugs</p>
+                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.totalBugs}</p>
+              </div>
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 text-slate-600 shrink-0">
+                <ClipboardList className="w-5 h-5" />
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--card-muted)] mt-2">Logged against production this month</p>
+          </div>
+
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Open Bugs</p>
+                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.openBugs}</p>
+              </div>
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-rose-50 text-rose-600 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </span>
+            </div>
+            {summary.openBugs > 0 ? (
+              <p className="text-[11px] text-rose-600 font-semibold mt-2">Still needs a fix</p>
+            ) : (
+              <p className="text-[11px] text-[var(--card-muted)] mt-2">Nothing outstanding</p>
+            )}
+          </div>
+
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Fixed Bugs</p>
+                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.fixedBugs}</p>
+              </div>
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--card-muted)] mt-2">Resolved this month</p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_24px_-12px_rgba(15,23,42,0.1)] p-4 mb-5 space-y-3">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search employee name..."
+              className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-200 rounded-full bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:bg-white transition-colors"
+            />
+          </div>
+          <select
+            value={activityFilter}
+            onChange={(e) => setActivityFilter(e.target.value as ActivityFilter)}
+            className="px-4 py-2.5 text-sm font-semibold border border-slate-200 rounded-full bg-slate-50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+          >
+            <option value="all">All Activity</option>
+            <option value="revisions">Has Revisions</option>
+            <option value="open_bugs">Has Open Bugs</option>
+            <option value="fixed_bugs">Has Fixed Bugs</option>
+          </select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)] mr-1">
+            Active Criteria:
+          </span>
+          {role === "hr" && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+              Role: Developer + Manager
+            </span>
+          )}
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+            Month: {monthLabel(monthCursor)}
+          </span>
+          {activityFilter !== "all" && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+              Activity: {activityFilter.replace("_", " ")}
+            </span>
+          )}
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setActivityFilter("all");
+              }}
+              className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] hover:opacity-80 px-2 py-1"
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -260,7 +420,7 @@ export default function KpisPage() {
         </div>
       ) : people.length === 0 ? (
         <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm p-10 text-center">
-          <p className="text-[var(--card-muted)]">No team members found.</p>
+          <p className="text-[var(--card-muted)]">No team members match these filters.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -268,25 +428,40 @@ export default function KpisPage() {
             const isOpen = expanded.has(person.email);
             const revisionCount = person.revisions.length;
             const bugCount = person.bugs.length;
+            const openBugCount = person.bugs.filter((b) => b.status !== "fixed").length;
 
             return (
-              <div key={person.email} className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-sm overflow-hidden">
+              <div
+                key={person.email}
+                className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_18px_-10px_rgba(15,23,42,0.1)] overflow-hidden transition-shadow hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]"
+              >
                 <button
                   onClick={() => toggleExpanded(person.email)}
-                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50/50 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50/50 transition-colors text-left gap-3"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     {isOpen ? (
                       <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
                     ) : (
                       <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     )}
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0 text-sm">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white font-bold flex items-center justify-center shrink-0 text-sm ring-2 ring-white shadow-sm">
                       {person.name ? person.name.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4" />}
                     </div>
-                    <p className="font-bold text-[var(--card-foreground)]">{person.name}</p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-[var(--card-foreground)]">{person.name}</p>
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+                          {formatRole(roleByEmail[person.email])}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--card-muted)]">
+                        {revisionCount} revision{revisionCount === 1 ? "" : "s"} · {bugCount} bug{bugCount === 1 ? "" : "s"}
+                        {openBugCount > 0 && ` · ${openBugCount} open`}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0">
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex items-center gap-1 border ${
                         revisionCount > 0
