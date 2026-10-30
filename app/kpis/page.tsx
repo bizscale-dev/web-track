@@ -7,6 +7,9 @@ import { useAuth } from "@/components/AuthProvider";
 import { calculateBusinessDuration, formatBusinessDuration } from "@/lib/businessTime";
 import type { TaskRevision } from "@/type/taskRevision";
 import type { ProductionBug } from "@/type/productionBug";
+import type { AssignedTask } from "@/type/assignedTask";
+import { effectiveAssigneeEmail, effectiveAssigneeName, isLateCompletion } from "@/lib/taskApproval";
+import HrViewBanner from "@/components/HrViewBanner";
 import {
   Loader2,
   ShieldAlert,
@@ -23,6 +26,7 @@ import {
   ClipboardList,
   CheckCircle2,
   AlertTriangle,
+  ListChecks,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
@@ -61,21 +65,37 @@ function formatRole(r: string | undefined) {
   return r ? r.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Team Member";
 }
 
+// A task counts as currently overdue the same way Tasks/Tasks Overview do:
+// not completed, and past its own deadline.
+function isTaskOverdue(t: AssignedTask): boolean {
+  return t.status !== "completed" && !!t.due_at && new Date(t.due_at) < new Date();
+}
+
 type PersonKpi = {
   name: string;
   email: string;
   revisions: TaskRevision[];
   bugs: ProductionBug[];
+  tasks: AssignedTask[];
 };
 
 export default function KpisPage() {
   const { role, loading: authLoading } = useAuth();
   const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
 
+  // Admin can preview the HR-scoped view via ?viewAs=hr from Command Center —
+  // see components/HrViewBanner.tsx.
+  const [viewingAsHr, setViewingAsHr] = useState(false);
+  useEffect(() => {
+    setViewingAsHr(new URLSearchParams(window.location.search).get("viewAs") === "hr");
+  }, []);
+  const effectiveRole = role === "admin" && viewingAsHr ? "hr" : role;
+
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [revisions, setRevisions] = useState<TaskRevision[]>([]);
   const [bugs, setBugs] = useState<ProductionBug[]>([]);
+  const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -104,7 +124,7 @@ export default function KpisPage() {
     setIsLoading(true);
     const { start, end } = monthRange(monthCursor);
 
-    const [revisionsResult, bugsResult] = await Promise.all([
+    const [revisionsResult, bugsResult, tasksResult] = await Promise.all([
       supabase
         .from("task_revisions")
         .select("*")
@@ -117,10 +137,17 @@ export default function KpisPage() {
         .gte("created_at", start)
         .lt("created_at", end)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("assigned_tasks")
+        .select("*")
+        .gte("created_at", start)
+        .lt("created_at", end)
+        .order("created_at", { ascending: false }),
     ]);
 
     setRevisions((revisionsResult.data as TaskRevision[]) || []);
     setBugs((bugsResult.data as ProductionBug[]) || []);
+    setTasks((tasksResult.data as AssignedTask[]) || []);
     setIsLoading(false);
   }
 
@@ -154,19 +181,26 @@ export default function KpisPage() {
     const byEmail: Record<string, PersonKpi> = {};
 
     for (const m of teamMembers) {
-      byEmail[m.email] = { name: m.name, email: m.email, revisions: [], bugs: [] };
+      byEmail[m.email] = { name: m.name, email: m.email, revisions: [], bugs: [], tasks: [] };
     }
     for (const r of revisions) {
       if (!byEmail[r.assignee_email]) {
-        byEmail[r.assignee_email] = { name: r.assignee_name, email: r.assignee_email, revisions: [], bugs: [] };
+        byEmail[r.assignee_email] = { name: r.assignee_name, email: r.assignee_email, revisions: [], bugs: [], tasks: [] };
       }
       byEmail[r.assignee_email].revisions.push(r);
     }
     for (const b of bugs) {
       if (!byEmail[b.developer_email]) {
-        byEmail[b.developer_email] = { name: b.developer_name, email: b.developer_email, revisions: [], bugs: [] };
+        byEmail[b.developer_email] = { name: b.developer_name, email: b.developer_email, revisions: [], bugs: [], tasks: [] };
       }
       byEmail[b.developer_email].bugs.push(b);
+    }
+    for (const t of tasks) {
+      const taskEmail = effectiveAssigneeEmail(t);
+      if (!byEmail[taskEmail]) {
+        byEmail[taskEmail] = { name: effectiveAssigneeName(t), email: taskEmail, revisions: [], bugs: [], tasks: [] };
+      }
+      byEmail[taskEmail].tasks.push(t);
     }
 
     const everyone = Object.values(byEmail);
@@ -174,7 +208,7 @@ export default function KpisPage() {
     // manager, designer) still sees every person. Managers are included
     // alongside Developers since HR tracks them together for now.
     let scoped =
-      role === "hr"
+      effectiveRole === "hr"
         ? everyone.filter((p) => roleByEmail[p.email] === roleFilter || roleByEmail[p.email] === "manager")
         : everyone;
 
@@ -190,22 +224,27 @@ export default function KpisPage() {
     if (q) scoped = scoped.filter((p) => p.name.toLowerCase().includes(q));
 
     return scoped.sort((a, b) => a.name.localeCompare(b.name));
-  }, [teamMembers, revisions, bugs, role, roleByEmail, roleFilter, activityFilter, searchQuery]);
+  }, [teamMembers, revisions, bugs, tasks, effectiveRole, roleByEmail, roleFilter, activityFilter, searchQuery]);
 
   const summary = useMemo(() => {
     const scopedEmails = new Set(people.map((p) => p.email));
     const scopedRevisions =
-      role === "hr" ? revisions.filter((r) => scopedEmails.has(r.assignee_email)) : revisions;
-    const scopedBugs = role === "hr" ? bugs.filter((b) => scopedEmails.has(b.developer_email)) : bugs;
+      effectiveRole === "hr" ? revisions.filter((r) => scopedEmails.has(r.assignee_email)) : revisions;
+    const scopedBugs = effectiveRole === "hr" ? bugs.filter((b) => scopedEmails.has(b.developer_email)) : bugs;
+    const scopedTasks =
+      effectiveRole === "hr" ? tasks.filter((t) => scopedEmails.has(effectiveAssigneeEmail(t))) : tasks;
     const openBugs = scopedBugs.filter((b) => b.status !== "fixed").length;
     const fixedBugs = scopedBugs.length - openBugs;
+    const overdueTasks = scopedTasks.filter(isTaskOverdue).length;
     return {
       totalRevisions: scopedRevisions.length,
       totalBugs: scopedBugs.length,
       openBugs,
       fixedBugs,
+      totalTasks: scopedTasks.length,
+      overdueTasks,
     };
-  }, [people, revisions, bugs, role]);
+  }, [people, revisions, bugs, tasks, effectiveRole]);
 
   const filtersActive = !!searchQuery || activityFilter !== "all";
 
@@ -236,6 +275,8 @@ export default function KpisPage() {
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
       </Link>
 
+      <HrViewBanner />
+
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-[0_8px_20px_-6px_rgba(5,150,105,0.5)]">
@@ -258,7 +299,7 @@ export default function KpisPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {role === "hr" && (
+          {effectiveRole === "hr" && (
             <div className="relative" title="More roles are coming soon — locked to Developer (+ Manager) for now">
               <Users className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <select
@@ -299,7 +340,37 @@ export default function KpisPage() {
       </div>
 
       {!isLoading && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Tasks Assigned</p>
+                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.totalTasks}</p>
+              </div>
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-sky-50 text-sky-600 shrink-0">
+                <ListChecks className="w-5 h-5" />
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--card-muted)] mt-2">Handed out this month</p>
+          </div>
+
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Overdue Tasks</p>
+                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.overdueTasks}</p>
+              </div>
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-50 text-amber-600 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </span>
+            </div>
+            {summary.overdueTasks > 0 ? (
+              <p className="text-[11px] text-amber-600 font-semibold mt-2">Past their deadline</p>
+            ) : (
+              <p className="text-[11px] text-[var(--card-muted)] mt-2">Nothing overdue</p>
+            )}
+          </div>
+
           <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -386,7 +457,7 @@ export default function KpisPage() {
           <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)] mr-1">
             Active Criteria:
           </span>
-          {role === "hr" && (
+          {effectiveRole === "hr" && (
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-600">
               Role: Developer + Manager
             </span>
@@ -429,6 +500,12 @@ export default function KpisPage() {
             const revisionCount = person.revisions.length;
             const bugCount = person.bugs.length;
             const openBugCount = person.bugs.filter((b) => b.status !== "fixed").length;
+            const taskCount = person.tasks.length;
+            const taskOverdueCount = person.tasks.filter(isTaskOverdue).length;
+            const taskLateCount = person.tasks.filter((t) => t.status === "completed" && isLateCompletion(t)).length;
+            const taskOnTimeCount = person.tasks.filter(
+              (t) => t.status === "completed" && !isLateCompletion(t)
+            ).length;
 
             return (
               <div
@@ -456,12 +533,25 @@ export default function KpisPage() {
                         </span>
                       </div>
                       <p className="text-xs text-[var(--card-muted)]">
-                        {revisionCount} revision{revisionCount === 1 ? "" : "s"} · {bugCount} bug{bugCount === 1 ? "" : "s"}
+                        {taskCount} task{taskCount === 1 ? "" : "s"} · {revisionCount} revision{revisionCount === 1 ? "" : "s"} · {bugCount} bug
+                        {bugCount === 1 ? "" : "s"}
                         {openBugCount > 0 && ` · ${openBugCount} open`}
+                        {taskOverdueCount > 0 && ` · ${taskOverdueCount} overdue`}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0">
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex items-center gap-1 border ${
+                        taskOverdueCount > 0
+                          ? "text-amber-600 bg-amber-50 border-amber-100"
+                          : taskCount > 0
+                          ? "text-sky-600 bg-sky-50 border-sky-100"
+                          : "text-gray-400 bg-gray-50 border-gray-100"
+                      }`}
+                    >
+                      <ListChecks className="w-3 h-3" /> {taskCount} task{taskCount === 1 ? "" : "s"}
+                    </span>
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex items-center gap-1 border ${
                         revisionCount > 0
@@ -483,8 +573,56 @@ export default function KpisPage() {
                   </div>
                 </button>
 
-                {isOpen && (revisionCount > 0 || bugCount > 0) && (
+                {isOpen && (taskCount > 0 || revisionCount > 0 || bugCount > 0) && (
                   <div className="border-t border-gray-100 divide-y divide-gray-100">
+                    {taskCount > 0 && (
+                      <div className="px-5 py-2.5 bg-slate-50/60 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-semibold text-[var(--card-muted)]">
+                        <span className="text-emerald-600">{taskOnTimeCount} on time</span>
+                        <span className="text-amber-600">{taskLateCount} completed late</span>
+                        <span className="text-rose-600">{taskOverdueCount} overdue</span>
+                      </div>
+                    )}
+                    {person.tasks.map((t) => {
+                      const isCompleted = t.status === "completed";
+                      const overdue = isTaskOverdue(t);
+                      const late = isCompleted && isLateCompletion(t);
+                      const statusLabel = overdue
+                        ? "Overdue"
+                        : late
+                        ? "Completed Late"
+                        : isCompleted
+                        ? "Completed On Time"
+                        : t.status === "in_progress"
+                        ? "In Progress"
+                        : "Pending";
+                      const statusClass = overdue
+                        ? "bg-rose-100 text-rose-600"
+                        : late
+                        ? "bg-amber-100 text-amber-700"
+                        : isCompleted
+                        ? "bg-emerald-100 text-emerald-700"
+                        : t.status === "in_progress"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-slate-100 text-slate-500";
+
+                      return (
+                        <div key={`task-${t.id}`} className="px-5 py-3">
+                          <p className="text-sm font-bold text-[var(--card-foreground)] flex items-center gap-1.5 flex-wrap">
+                            <ListChecks className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                            <Link href={`/tasks?taskId=${t.id}`} className="hover:text-[var(--accent)] hover:underline">
+                              {t.title}
+                            </Link>
+                            <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${statusClass}`}>
+                              {statusLabel}
+                            </span>
+                          </p>
+                          <p className="text-xs text-[var(--card-muted)] mt-1">
+                            assigned {daysAgo(t.created_at)}
+                            {t.due_at && ` · due ${new Date(t.due_at).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                      );
+                    })}
                     {person.revisions.map((r) => {
                       const duration = r.resolved_at
                         ? formatBusinessDuration(

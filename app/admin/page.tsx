@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Users, Clock, Plus, Trash2, Activity, ShieldAlert, BarChart3, CheckCircle2, Edit2, Save, X, KeyRound, Loader2, Calendar, Bell, AtSign } from "lucide-react";
+import { ArrowLeft, Users, Clock, Plus, Trash2, Activity, ShieldAlert, BarChart3, CheckCircle2, Edit2, Save, X, KeyRound, Loader2, Calendar, Bell, AtSign, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { WEBSITE_STATUSES } from "@/lib/statuses";
@@ -261,9 +261,17 @@ const addSecureMember = async () => {
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <p className="text-gray-500 font-medium">Intelligence overview and pipeline forensics.</p>
           {role === "admin" && (
-            <button onClick={() => setShowCalendarModal(true)} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all w-fit">
-              <Calendar className="w-4 h-4" /> Global Calendar
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/tasks/overview?viewAs=hr"
+                className="flex items-center gap-2 bg-amber-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-amber-600 transition-all w-fit"
+              >
+                <Eye className="w-4 h-4" /> View as HR
+              </Link>
+              <button onClick={() => setShowCalendarModal(true)} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all w-fit">
+                <Calendar className="w-4 h-4" /> Global Calendar
+              </button>
+            </div>
           )}
         </div>
       </div>

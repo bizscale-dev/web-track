@@ -11,6 +11,7 @@ import {
   computeApprovalState,
 } from "@/lib/taskApproval";
 import { calculateBusinessDuration, formatBusinessDuration } from "@/lib/businessTime";
+import HrViewBanner from "@/components/HrViewBanner";
 import type { AssignedTask } from "@/type/assignedTask";
 import type { TaskRevision } from "@/type/taskRevision";
 import {
@@ -151,6 +152,14 @@ export default function TasksOverviewPage() {
   const { role, loading: authLoading } = useAuth();
   const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
 
+  // Admin can preview the HR-scoped view via ?viewAs=hr from Command Center —
+  // see components/HrViewBanner.tsx.
+  const [viewingAsHr, setViewingAsHr] = useState(false);
+  useEffect(() => {
+    setViewingAsHr(new URLSearchParams(window.location.search).get("viewAs") === "hr");
+  }, []);
+  const effectiveRole = role === "admin" && viewingAsHr ? "hr" : role;
+
   const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [revisions, setRevisions] = useState<TaskRevision[]>([]);
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
@@ -231,12 +240,12 @@ export default function TasksOverviewPage() {
   // manager, designer) still sees every person. Managers are included
   // alongside Developers since HR tracks them together for now.
   const roleScopedTasks = useMemo(() => {
-    if (role !== "hr") return tasks;
+    if (effectiveRole !== "hr") return tasks;
     return tasks.filter((t) => {
       const email = effectiveAssigneeEmail(t);
       return roleByEmail[email] === roleFilter || roleByEmail[email] === "manager";
     });
-  }, [tasks, role, roleByEmail, roleFilter]);
+  }, [tasks, effectiveRole, roleByEmail, roleFilter]);
 
   const dateScopedTasks = useMemo(() => {
     if (dateFilter === "all") return roleScopedTasks;
@@ -407,6 +416,8 @@ export default function TasksOverviewPage() {
         </Link>
       )}
 
+      <HrViewBanner />
+
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-sky-600 text-white rounded-2xl shadow-[0_8px_20px_-6px_rgba(2,132,199,0.5)]">
@@ -426,7 +437,7 @@ export default function TasksOverviewPage() {
         </div>
 
         <div className="flex gap-2 flex-wrap items-center">
-          {role === "hr" && (
+          {effectiveRole === "hr" && (
             <div className="relative" title="More roles are coming soon — locked to Developer (+ Manager) for now">
               <Users className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <select
@@ -609,7 +620,7 @@ export default function TasksOverviewPage() {
           <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)] mr-1">
             Active Criteria:
           </span>
-          {role === "hr" && (
+          {effectiveRole === "hr" && (
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-600">
               Role: Developer + Manager
             </span>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import type { EodReportWithEntries } from "@/type/eod";
+import HrViewBanner from "@/components/HrViewBanner";
 import {
   Loader2,
   ShieldAlert,
@@ -233,6 +234,8 @@ export default function EodOverviewPage() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
         </Link>
       )}
+
+      <HrViewBanner />
 
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">

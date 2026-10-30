@@ -695,15 +695,27 @@ export default function TasksPage() {
   const formatRole = (r: string | undefined) =>
     r ? r.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : null;
 
-  const adminStats = useMemo(
-    () => ({
-      total: tasks.length,
-      inProgress: tasks.filter((t) => t.status === "in_progress").length,
-      pendingReview: tasks.filter(isPendingReviewState).length,
-      overdue: tasks.filter(isOverdueTask).length,
-    }),
-    [tasks]
+  // The 4 top stat cards follow the Assignee filter — picking someone there
+  // recomputes every card's number for just their tasks.
+  const statsScopeTasks = useMemo(
+    () => (assigneeFilter === "all" ? tasks : tasks.filter((t) => effectiveAssigneeEmail(t) === assigneeFilter)),
+    [tasks, assigneeFilter]
   );
+
+  const adminStats = useMemo(() => {
+    const tasksWithDeadline = statsScopeTasks.filter((t) => t.due_at).length;
+    const late = statsScopeTasks.filter(
+      (t) => isOverdueTask(t) || (t.status === "completed" && isLateCompletion(t))
+    ).length;
+    return {
+      total: statsScopeTasks.length,
+      inProgress: statsScopeTasks.filter((t) => t.status === "in_progress").length,
+      pendingReview: statsScopeTasks.filter(isPendingReviewState).length,
+      overdue: statsScopeTasks.filter(isOverdueTask).length,
+      onTime: tasksWithDeadline - late,
+      late,
+    };
+  }, [statsScopeTasks]);
 
   const quickFilterCounts = useMemo(
     () => ({
@@ -951,16 +963,38 @@ export default function TasksPage() {
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
+          <button
+            type="button"
+            onClick={() => {
+              setQuickFilter("all");
+              setWorkStatusFilter("all");
+            }}
+            className={`text-left bg-[var(--card)] border rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)] ${
+              quickFilter === "all" && workStatusFilter === "all" ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/20" : "border-[var(--card-border)]"
+            }`}
+          >
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Total Tasks</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.total}</p>
+              <p className="text-[10px] font-semibold text-[var(--card-muted)] mt-0.5">
+                <span className="text-emerald-600">{adminStats.onTime} on time</span> ·{" "}
+                <span className="text-rose-600">{adminStats.late} late</span>
+              </p>
             </div>
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-900 text-white shrink-0">
               <ClipboardList className="w-5 h-5" />
             </span>
-          </div>
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setWorkStatusFilter("in_progress");
+              setQuickFilter("all");
+            }}
+            className={`text-left bg-[var(--card)] border rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)] ${
+              workStatusFilter === "in_progress" ? "border-blue-500 ring-2 ring-blue-500/20" : "border-[var(--card-border)]"
+            }`}
+          >
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">In Progress</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.inProgress}</p>
@@ -968,8 +1002,17 @@ export default function TasksPage() {
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shrink-0">
               <Timer className="w-5 h-5" />
             </span>
-          </div>
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQuickFilter("pending_review");
+              setWorkStatusFilter("all");
+            }}
+            className={`text-left bg-[var(--card)] border rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)] ${
+              quickFilter === "pending_review" ? "border-amber-500 ring-2 ring-amber-500/20" : "border-[var(--card-border)]"
+            }`}
+          >
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Pending Review</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.pendingReview}</p>
@@ -980,8 +1023,17 @@ export default function TasksPage() {
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500 text-white shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </span>
-          </div>
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)]">
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQuickFilter("overdue");
+              setWorkStatusFilter("all");
+            }}
+            className={`text-left bg-[var(--card)] border rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4 flex items-center justify-between gap-3 transition hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-10px_rgba(15,23,42,0.16)] ${
+              quickFilter === "overdue" ? "border-rose-500 ring-2 ring-rose-500/20" : "border-[var(--card-border)]"
+            }`}
+          >
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Overdue</p>
               <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{adminStats.overdue}</p>
@@ -992,7 +1044,7 @@ export default function TasksPage() {
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-rose-600 text-white shrink-0">
               <AlertTriangle className="w-5 h-5" />
             </span>
-          </div>
+          </button>
         </div>
 
         <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_24px_-12px_rgba(15,23,42,0.1)] p-4 mb-5 space-y-3">
