@@ -101,6 +101,7 @@ export default function KpisPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
   // HR-only role filter — locked to "developer" for now (see
   // ROLE_FILTER_OPTIONS comment). Doesn't affect admin/manager/designer,
   // who still see everyone.
@@ -177,6 +178,16 @@ export default function KpisPage() {
     return roles;
   }, [teamMembers]);
 
+  // Employee dropdown stays within the current role scope, same as Tasks
+  // Overview — HR never sees people outside the locked role.
+  const employeeOptions = useMemo(() => {
+    const members =
+      effectiveRole === "hr"
+        ? teamMembers.filter((m) => m.role === roleFilter || m.role === "manager")
+        : teamMembers;
+    return [...members].sort((a, b) => a.name.localeCompare(b.name));
+  }, [teamMembers, effectiveRole, roleFilter]);
+
   const people = useMemo<PersonKpi[]>(() => {
     const byEmail: Record<string, PersonKpi> = {};
 
@@ -220,22 +231,30 @@ export default function KpisPage() {
       });
     }
 
+    if (employeeFilter !== "all") scoped = scoped.filter((p) => p.email === employeeFilter);
+
     const q = searchQuery.trim().toLowerCase();
     if (q) scoped = scoped.filter((p) => p.name.toLowerCase().includes(q));
 
     return scoped.sort((a, b) => a.name.localeCompare(b.name));
-  }, [teamMembers, revisions, bugs, tasks, effectiveRole, roleByEmail, roleFilter, activityFilter, searchQuery]);
+  }, [teamMembers, revisions, bugs, tasks, effectiveRole, roleByEmail, roleFilter, activityFilter, employeeFilter, searchQuery]);
 
   const summary = useMemo(() => {
+    // Scoped to whatever's currently narrowing `people` — role lock, activity
+    // filter, the Employee dropdown, or search — so the top cards always
+    // match what's actually listed below.
     const scopedEmails = new Set(people.map((p) => p.email));
-    const scopedRevisions =
-      effectiveRole === "hr" ? revisions.filter((r) => scopedEmails.has(r.assignee_email)) : revisions;
-    const scopedBugs = effectiveRole === "hr" ? bugs.filter((b) => scopedEmails.has(b.developer_email)) : bugs;
-    const scopedTasks =
-      effectiveRole === "hr" ? tasks.filter((t) => scopedEmails.has(effectiveAssigneeEmail(t))) : tasks;
+    const scopedRevisions = revisions.filter((r) => scopedEmails.has(r.assignee_email));
+    const scopedBugs = bugs.filter((b) => scopedEmails.has(b.developer_email));
+    const scopedTasks = tasks.filter((t) => scopedEmails.has(effectiveAssigneeEmail(t)));
     const openBugs = scopedBugs.filter((b) => b.status !== "fixed").length;
     const fixedBugs = scopedBugs.length - openBugs;
     const overdueTasks = scopedTasks.filter(isTaskOverdue).length;
+    const lateTasks = scopedTasks.filter(
+      (t) => isTaskOverdue(t) || (t.status === "completed" && isLateCompletion(t))
+    ).length;
+    const inProgressTasks = scopedTasks.filter((t) => t.status === "in_progress").length;
+    const completedTasks = scopedTasks.filter((t) => t.status === "completed").length;
     return {
       totalRevisions: scopedRevisions.length,
       totalBugs: scopedBugs.length,
@@ -243,10 +262,13 @@ export default function KpisPage() {
       fixedBugs,
       totalTasks: scopedTasks.length,
       overdueTasks,
+      lateTasks,
+      inProgressTasks,
+      completedTasks,
     };
-  }, [people, revisions, bugs, tasks, effectiveRole]);
+  }, [people, revisions, bugs, tasks]);
 
-  const filtersActive = !!searchQuery || activityFilter !== "all";
+  const filtersActive = !!searchQuery || activityFilter !== "all" || employeeFilter !== "all";
 
   if (authLoading) {
     return (
@@ -351,23 +373,65 @@ export default function KpisPage() {
                 <ListChecks className="w-5 h-5" />
               </span>
             </div>
-            <p className="text-[11px] text-[var(--card-muted)] mt-2">Handed out this month</p>
+            <p className="text-[11px] text-[var(--card-muted)] mt-2">
+              {employeeFilter === "all"
+                ? "Handed out this month"
+                : `For ${employeeOptions.find((m) => m.email === employeeFilter)?.name || "this person"}`}
+            </p>
           </div>
+
+          {employeeFilter !== "all" && (
+            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">In Progress</p>
+                  <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.inProgressTasks}</p>
+                </div>
+                <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                  <ListChecks className="w-5 h-5" />
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--card-muted)] mt-2">Active work underway</p>
+            </div>
+          )}
+
+          {employeeFilter !== "all" && (
+            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Completed</p>
+                  <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.completedTasks}</p>
+                </div>
+                <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--card-muted)] mt-2">
+                {summary.totalTasks > 0 ? Math.round((summary.completedTasks / summary.totalTasks) * 100) : 0}% completed
+              </p>
+            </div>
+          )}
 
           <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Overdue Tasks</p>
-                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.overdueTasks}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">
+                  {employeeFilter === "all" ? "Overdue Tasks" : "Late Tasks"}
+                </p>
+                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">
+                  {employeeFilter === "all" ? summary.overdueTasks : summary.lateTasks}
+                </p>
               </div>
               <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-50 text-amber-600 shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </span>
             </div>
-            {summary.overdueTasks > 0 ? (
-              <p className="text-[11px] text-amber-600 font-semibold mt-2">Past their deadline</p>
+            {(employeeFilter === "all" ? summary.overdueTasks : summary.lateTasks) > 0 ? (
+              <p className="text-[11px] text-amber-600 font-semibold mt-2">
+                {employeeFilter === "all" ? "Past their deadline" : "Overdue + completed past deadline"}
+              </p>
             ) : (
-              <p className="text-[11px] text-[var(--card-muted)] mt-2">Nothing overdue</p>
+              <p className="text-[11px] text-[var(--card-muted)] mt-2">{employeeFilter === "all" ? "Nothing overdue" : "Nothing late"}</p>
             )}
           </div>
 
@@ -442,6 +506,18 @@ export default function KpisPage() {
             />
           </div>
           <select
+            value={employeeFilter}
+            onChange={(e) => setEmployeeFilter(e.target.value)}
+            className="px-4 py-2.5 text-sm font-semibold border border-slate-200 rounded-full bg-slate-50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+          >
+            <option value="all">All Employees</option>
+            {employeeOptions.map((m) => (
+              <option key={m.email} value={m.email}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <select
             value={activityFilter}
             onChange={(e) => setActivityFilter(e.target.value as ActivityFilter)}
             className="px-4 py-2.5 text-sm font-semibold border border-slate-200 rounded-full bg-slate-50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
@@ -470,12 +546,18 @@ export default function KpisPage() {
               Activity: {activityFilter.replace("_", " ")}
             </span>
           )}
+          {employeeFilter !== "all" && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+              Employee: {employeeOptions.find((m) => m.email === employeeFilter)?.name || employeeFilter}
+            </span>
+          )}
           {filtersActive && (
             <button
               type="button"
               onClick={() => {
                 setSearchQuery("");
                 setActivityFilter("all");
+                setEmployeeFilter("all");
               }}
               className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] hover:opacity-80 px-2 py-1"
             >
