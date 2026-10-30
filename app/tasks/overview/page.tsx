@@ -329,9 +329,12 @@ export default function TasksOverviewPage() {
     const inProgress = statsScopedTasks.filter((t) => t.status === "in_progress").length;
     const notStarted = total - completed - inProgress;
     const overdue = statsScopedTasks.filter(isOverdueTask).length;
+    const late = statsScopedTasks.filter(
+      (t) => isOverdueTask(t) || (t.status === "completed" && isLateCompletion(t))
+    ).length;
     const pendingReview = statsScopedTasks.filter(isPendingReviewState).length;
     const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, inProgress, notStarted, overdue, pendingReview, completionPct };
+    return { total, completed, inProgress, notStarted, overdue, late, pendingReview, completionPct };
   }, [statsScopedTasks]);
 
   const filtersActive =
@@ -483,8 +486,27 @@ export default function TasksOverviewPage() {
                 <ClipboardList className="w-5 h-5" />
               </span>
             </div>
-            <p className="text-[11px] text-[var(--card-muted)] mt-2">All tasks in current scope</p>
+            <p className="text-[11px] text-[var(--card-muted)] mt-2">
+              {employeeFilter === "all"
+                ? "All tasks in current scope"
+                : `For ${employeeOptions.find((o) => o.email === employeeFilter)?.name || "this person"}`}
+            </p>
           </div>
+
+          {employeeFilter !== "all" && (
+            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">In Progress</p>
+                  <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.inProgress}</p>
+                </div>
+                <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                  <Timer className="w-5 h-5" />
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--card-muted)] mt-2">Active work underway</p>
+            </div>
+          )}
 
           <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
             <div className="flex items-center justify-between gap-3">
@@ -502,35 +524,56 @@ export default function TasksOverviewPage() {
             <p className="text-[11px] text-emerald-600 font-semibold mt-1">{summary.completionPct}% completed</p>
           </div>
 
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">In Progress</p>
-                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.inProgress}</p>
+          {employeeFilter === "all" && (
+            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">In Progress</p>
+                  <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.inProgress}</p>
+                </div>
+                <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                  <Timer className="w-5 h-5" />
+                </span>
               </div>
-              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600 shrink-0">
-                <Timer className="w-5 h-5" />
-              </span>
+              <p className="text-[11px] text-[var(--card-muted)] mt-2">Active work underway</p>
             </div>
-            <p className="text-[11px] text-[var(--card-muted)] mt-2">Active work underway</p>
-          </div>
+          )}
 
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Not Started / Overdue</p>
-                <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.notStarted}</p>
+          {employeeFilter === "all" ? (
+            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Not Started / Overdue</p>
+                  <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.notStarted}</p>
+                </div>
+                <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-rose-50 text-rose-600 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </span>
               </div>
-              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-rose-50 text-rose-600 shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </span>
+              {summary.overdue > 0 ? (
+                <p className="text-[11px] text-rose-600 font-semibold mt-2">{summary.overdue} overdue — needs attention</p>
+              ) : (
+                <p className="text-[11px] text-[var(--card-muted)] mt-2">Nothing overdue</p>
+              )}
             </div>
-            {summary.overdue > 0 ? (
-              <p className="text-[11px] text-rose-600 font-semibold mt-2">{summary.overdue} overdue — needs attention</p>
-            ) : (
-              <p className="text-[11px] text-[var(--card-muted)] mt-2">Nothing overdue</p>
-            )}
-          </div>
+          ) : (
+            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_20px_-10px_rgba(15,23,42,0.12)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--card-muted)]">Late</p>
+                  <p className="text-3xl font-black text-[var(--card-foreground)] leading-none mt-2">{summary.late}</p>
+                </div>
+                <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-rose-50 text-rose-600 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </span>
+              </div>
+              {summary.late > 0 ? (
+                <p className="text-[11px] text-rose-600 font-semibold mt-2">Overdue + completed past deadline</p>
+              ) : (
+                <p className="text-[11px] text-[var(--card-muted)] mt-2">Nothing late</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
