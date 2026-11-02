@@ -40,9 +40,21 @@ import {
   Search,
   ClipboardList,
   ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 
 type TeamMember = { name: string; email: string; role: string };
+
+function monthLabel(date: Date): string {
+  return date.toLocaleString(undefined, { month: "long", year: "numeric" });
+}
+
+function monthRange(date: Date): { start: Date; end: Date } {
+  return {
+    start: new Date(date.getFullYear(), date.getMonth(), 1),
+    end: new Date(date.getFullYear(), date.getMonth() + 1, 1),
+  };
+}
 type Tab = "mine" | "assigned" | "all";
 type WorkStatusFilter = "all" | "pending" | "in_progress" | "completed";
 type QuickFilter = "all" | "mine" | "urgent" | "overdue" | "pending_review" | "approved";
@@ -199,6 +211,7 @@ export default function TasksPage() {
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [workStatusFilter, setWorkStatusFilter] = useState<WorkStatusFilter>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [monthCursor, setMonthCursor] = useState(() => new Date());
 
   // Admin never has tasks assigned to them, so they don't get a "mine" tab —
   // default them straight into tracking what they've handed out. Managers
@@ -650,6 +663,17 @@ export default function TasksPage() {
     return map;
   }, [taskRevisions]);
 
+  // Scopes the whole page to one month at a time (default: the current
+  // month), same as the KPIs page — picked by created_at, navigated with
+  // the prev/next month control in the filter bar.
+  const monthScopedTasks = useMemo(() => {
+    const { start, end } = monthRange(monthCursor);
+    return tasks.filter((t) => {
+      const created = new Date(t.created_at);
+      return created >= start && created < end;
+    });
+  }, [tasks, monthCursor]);
+
   const filteredTasks = useMemo(() => {
     if (highlightTaskId !== null) {
       return tasks.filter((t) => t.id === highlightTaskId);
@@ -657,13 +681,13 @@ export default function TasksPage() {
 
     const base =
       tab === "mine"
-        ? tasks.filter((t) => effectiveAssigneeEmail(t) === email)
+        ? monthScopedTasks.filter((t) => effectiveAssigneeEmail(t) === email)
         : tab === "assigned"
-        ? tasks.filter((t) => t.assigned_by_email === email || t.reassigned_by_email === email)
-        : tasks;
+        ? monthScopedTasks.filter((t) => t.assigned_by_email === email || t.reassigned_by_email === email)
+        : monthScopedTasks;
 
     return [...base].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [tasks, tab, email]);
+  }, [tasks, monthScopedTasks, tab, email, highlightTaskId]);
 
   const pendingMineCount = tasks.filter(
     (t) => effectiveAssigneeEmail(t) === email && t.status !== "completed"
@@ -691,8 +715,11 @@ export default function TasksPage() {
   // The 4 top stat cards follow the Assignee filter — picking someone there
   // recomputes every card's number for just their tasks.
   const statsScopeTasks = useMemo(
-    () => (assigneeFilter === "all" ? tasks : tasks.filter((t) => effectiveAssigneeEmail(t) === assigneeFilter)),
-    [tasks, assigneeFilter]
+    () =>
+      assigneeFilter === "all"
+        ? monthScopedTasks
+        : monthScopedTasks.filter((t) => effectiveAssigneeEmail(t) === assigneeFilter),
+    [monthScopedTasks, assigneeFilter]
   );
 
   const adminStats = useMemo(() => {
@@ -712,21 +739,21 @@ export default function TasksPage() {
 
   const quickFilterCounts = useMemo(
     () => ({
-      all: tasks.length,
-      mine: tasks.filter(isMineForAdmin).length,
-      urgent: tasks.filter((t) => t.is_urgent).length,
-      overdue: tasks.filter(isOverdueTask).length,
-      pending_review: tasks.filter(isPendingReviewState).length,
-      approved: tasks.filter((t) => {
+      all: monthScopedTasks.length,
+      mine: monthScopedTasks.filter(isMineForAdmin).length,
+      urgent: monthScopedTasks.filter((t) => t.is_urgent).length,
+      overdue: monthScopedTasks.filter(isOverdueTask).length,
+      pending_review: monthScopedTasks.filter(isPendingReviewState).length,
+      approved: monthScopedTasks.filter((t) => {
         const st = computeApprovalState(t);
         return st === "approved" || st === "auto_approved";
       }).length,
     }),
-    [tasks, email]
+    [monthScopedTasks, email]
   );
 
   const adminVisibleTasks = useMemo(() => {
-    let list = tasks;
+    let list = monthScopedTasks;
     if (quickFilter === "mine") list = list.filter(isMineForAdmin);
     else if (quickFilter === "urgent") list = list.filter((t) => t.is_urgent);
     else if (quickFilter === "overdue") list = list.filter(isOverdueTask);
@@ -748,7 +775,7 @@ export default function TasksPage() {
     }
 
     return [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [tasks, quickFilter, workStatusFilter, assigneeFilter, searchQuery, email]);
+  }, [monthScopedTasks, quickFilter, workStatusFilter, assigneeFilter, searchQuery, email]);
 
   // Keeps a task open by default (and swaps to the next visible one if the
   // current selection gets filtered out or deleted) instead of leaving the
@@ -1035,6 +1062,39 @@ export default function TasksPage() {
         </div>
 
         <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_24px_-12px_rgba(15,23,42,0.1)] p-4 mb-5 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-full p-1">
+              <button
+                type="button"
+                onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                className="p-2 rounded-full hover:bg-white text-slate-500"
+                aria-label="Previous month"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-bold text-[var(--card-foreground)] px-2 min-w-[140px] text-center">
+                {monthLabel(monthCursor)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                className="p-2 rounded-full hover:bg-white text-slate-500"
+                aria-label="Next month"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            {monthLabel(monthCursor) !== monthLabel(new Date()) && (
+              <button
+                type="button"
+                onClick={() => setMonthCursor(new Date())}
+                className="text-xs font-bold text-[var(--accent)] hover:opacity-80 px-2"
+              >
+                Back to this month
+              </button>
+            )}
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1112,7 +1172,7 @@ export default function TasksPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 items-start">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wider text-[var(--bg-muted)] mb-2">
-              Showing {adminVisibleTasks.length} of {tasks.length} tasks
+              Showing {adminVisibleTasks.length} of {monthScopedTasks.length} tasks in {monthLabel(monthCursor)}
             </p>
 
             {isLoading ? (
