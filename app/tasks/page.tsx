@@ -321,7 +321,7 @@ export default function TasksPage() {
   );
 
   const submitAssign = async () => {
-    if (!assignTitle.trim() || !assignToEmail) return;
+    if (!assignTitle.trim() || !assignToEmail || !assignDueAt) return;
     const assignee = assignableMembers.find((m) => m.email === assignToEmail);
     if (!assignee) return;
 
@@ -340,7 +340,7 @@ export default function TasksPage() {
         assigned_by_email: email || "",
         status: "pending",
         is_urgent: assignUrgent,
-        due_at: assignDueAt ? new Date(assignDueAt).toISOString() : null,
+        due_at: new Date(assignDueAt).toISOString(),
         assignee_seen: false,
       })
       .select("id")
@@ -723,7 +723,6 @@ export default function TasksPage() {
   );
 
   const adminStats = useMemo(() => {
-    const tasksWithDeadline = statsScopeTasks.filter((t) => t.due_at).length;
     const late = statsScopeTasks.filter(
       (t) => isOverdueTask(t) || (t.status === "completed" && isLateCompletion(t))
     ).length;
@@ -732,7 +731,10 @@ export default function TasksPage() {
       inProgress: statsScopeTasks.filter((t) => t.status === "in_progress").length,
       pendingReview: statsScopeTasks.filter(isPendingReviewState).length,
       overdue: statsScopeTasks.filter(isOverdueTask).length,
-      onTime: tasksWithDeadline - late,
+      // A task with no deadline can't be late, so it counts as on time —
+      // not left out of both buckets the way "has a due date, minus late"
+      // used to leave it.
+      onTime: statsScopeTasks.length - late,
       late,
     };
   }, [statsScopeTasks]);
@@ -972,12 +974,13 @@ export default function TasksPage() {
             </select>
             <div>
               <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1.5">
-                <CalendarClock className="w-3.5 h-3.5" /> Deadline (optional)
+                <CalendarClock className="w-3.5 h-3.5" /> Deadline <span className="text-rose-500">*</span>
               </label>
               <input
                 type="datetime-local"
                 value={assignDueAt}
                 onChange={(e) => setAssignDueAt(e.target.value)}
+                required
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
               />
             </div>
@@ -1007,7 +1010,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={submitAssign}
-                disabled={isAssigning || !assignTitle.trim() || !assignToEmail}
+                disabled={isAssigning || !assignTitle.trim() || !assignToEmail || !assignDueAt}
                 className="px-4 py-2 bg-[var(--button)] text-[var(--button-text)] rounded-lg text-sm font-bold hover:bg-[var(--button-hover)] disabled:opacity-40 transition-colors flex items-center gap-1.5"
               >
                 {isAssigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -1956,12 +1959,13 @@ export default function TasksPage() {
 
           <div>
             <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--card-muted)] mb-1.5">
-              <CalendarClock className="w-3.5 h-3.5" /> Deadline (optional)
+              <CalendarClock className="w-3.5 h-3.5" /> Deadline <span className="text-rose-500">*</span>
             </label>
             <input
               type="datetime-local"
               value={assignDueAt}
               onChange={(e) => setAssignDueAt(e.target.value)}
+              required
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
             />
           </div>
@@ -1994,7 +1998,7 @@ export default function TasksPage() {
             <button
               type="button"
               onClick={submitAssign}
-              disabled={isAssigning || !assignTitle.trim() || !assignToEmail}
+              disabled={isAssigning || !assignTitle.trim() || !assignToEmail || !assignDueAt}
               className="px-4 py-2 bg-[var(--button)] text-[var(--button-text)] rounded-lg text-sm font-bold hover:bg-[var(--button-hover)] disabled:opacity-40 transition-colors flex items-center gap-1.5"
             >
               {isAssigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
