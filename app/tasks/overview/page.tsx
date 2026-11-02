@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   CheckCircle2,
   Clock,
   Timer,
@@ -70,6 +71,17 @@ const DATE_FILTER_LABEL: Record<DateFilter, string> = {
   week: "This Week",
   all: "All Time",
 };
+
+function monthLabel(date: Date): string {
+  return date.toLocaleString(undefined, { month: "long", year: "numeric" });
+}
+
+function monthRange(date: Date): { start: Date; end: Date } {
+  return {
+    start: new Date(date.getFullYear(), date.getMonth(), 1),
+    end: new Date(date.getFullYear(), date.getMonth() + 1, 1),
+  };
+}
 
 function isWithinDays(dateStr: string, days: number) {
   const date = new Date(dateStr);
@@ -160,6 +172,7 @@ export default function TasksOverviewPage() {
   }, []);
   const effectiveRole = role === "admin" && viewingAsHr ? "hr" : role;
 
+  const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [revisions, setRevisions] = useState<TaskRevision[]>([]);
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
@@ -247,11 +260,19 @@ export default function TasksOverviewPage() {
     });
   }, [tasks, effectiveRole, roleByEmail, roleFilter]);
 
+  const monthScopedTasks = useMemo(() => {
+    const { start, end } = monthRange(monthCursor);
+    return roleScopedTasks.filter((t) => {
+      const created = new Date(t.created_at);
+      return created >= start && created < end;
+    });
+  }, [roleScopedTasks, monthCursor]);
+
   const dateScopedTasks = useMemo(() => {
-    if (dateFilter === "all") return roleScopedTasks;
+    if (dateFilter === "all") return monthScopedTasks;
     const days = dateFilter === "today" ? 1 : 7;
-    return roleScopedTasks.filter((t) => isWithinDays(t.created_at, days));
-  }, [roleScopedTasks, dateFilter]);
+    return monthScopedTasks.filter((t) => isWithinDays(t.created_at, days));
+  }, [monthScopedTasks, dateFilter]);
 
   const isPendingReviewState = (t: AssignedTask) => {
     const st = computeApprovalState(t);
@@ -455,6 +476,36 @@ export default function TasksOverviewPage() {
                 ))}
               </select>
             </div>
+          )}
+          <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full p-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-bold text-[var(--card-foreground)] px-1 min-w-[130px] text-center">
+              {monthLabel(monthCursor)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          {monthLabel(monthCursor) !== monthLabel(new Date()) && (
+            <button
+              type="button"
+              onClick={() => setMonthCursor(new Date())}
+              className="text-xs font-bold text-[var(--accent)] hover:opacity-80 px-1 shrink-0"
+            >
+              Back to this month
+            </button>
           )}
           <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full shadow-sm p-1">
             {(["today", "week", "all"] as DateFilter[]).map((filter) => (

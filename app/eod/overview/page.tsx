@@ -12,6 +12,7 @@ import {
   ListChecks,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   CheckCircle2,
   Clock,
   ArrowLeft,
@@ -30,6 +31,10 @@ import {
 type DateFilter = "today" | "week" | "all";
 type StatusFilter = "all" | "submitted" | "draft";
 type TeamMember = { email: string; name: string; role: string; avatar_url: string | null };
+
+function monthLabel(date: Date): string {
+  return date.toLocaleString(undefined, { month: "long", year: "numeric" });
+}
 
 function isWithinDays(dateStr: string, days: number) {
   const date = new Date(dateStr);
@@ -65,6 +70,7 @@ export default function EodOverviewPage() {
   const canView = role === "admin" || role === "manager" || role === "hr" || role === "designer";
   const canExtend = role === "admin" || role === "manager";
 
+  const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [reports, setReports] = useState<EodReportWithEntries[]>([]);
   const [teamByEmail, setTeamByEmail] = useState<Record<string, TeamMember>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -155,6 +161,9 @@ export default function EodOverviewPage() {
     // just noise here, not real activity.
     let list = reports.filter((r) => r.eod_entries.length > 0);
 
+    const monthKey = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}`;
+    list = list.filter((r) => r.report_date.slice(0, 7) === monthKey);
+
     if (dateFilter !== "all") {
       const days = dateFilter === "today" ? 1 : 7;
       list = list.filter((r) => isWithinDays(r.report_date, days));
@@ -177,7 +186,7 @@ export default function EodOverviewPage() {
     }
 
     return list;
-  }, [reports, dateFilter, statusFilter, searchQuery]);
+  }, [reports, monthCursor, dateFilter, statusFilter, searchQuery]);
 
   const groupedByDate = useMemo(() => {
     const groups: Record<string, EodReportWithEntries[]> = {};
@@ -255,20 +264,52 @@ export default function EodOverviewPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full shadow-sm p-1">
-          {(["today", "week", "all"] as DateFilter[]).map((filter) => (
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full p-1 shrink-0">
             <button
-              key={filter}
-              onClick={() => setDateFilter(filter)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${
-                dateFilter === filter
-                  ? "bg-[var(--button)] text-[var(--button-text)]"
-                  : "text-gray-500 hover:bg-gray-50"
-              }`}
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+              aria-label="Previous month"
             >
-              {filter}
+              <ChevronLeft className="w-4 h-4" />
             </button>
-          ))}
+            <span className="text-sm font-bold text-[var(--card-foreground)] px-1 min-w-[130px] text-center">
+              {monthLabel(monthCursor)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          {monthLabel(monthCursor) !== monthLabel(new Date()) && (
+            <button
+              type="button"
+              onClick={() => setMonthCursor(new Date())}
+              className="text-xs font-bold text-[var(--accent)] hover:opacity-80 px-1 shrink-0"
+            >
+              Back to this month
+            </button>
+          )}
+          <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full shadow-sm p-1">
+            {(["today", "week", "all"] as DateFilter[]).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setDateFilter(filter)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${
+                  dateFilter === filter
+                    ? "bg-[var(--button)] text-[var(--button-text)]"
+                    : "text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
