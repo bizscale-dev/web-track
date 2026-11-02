@@ -737,19 +737,36 @@ export default function TasksPage() {
     };
   }, [statsScopeTasks]);
 
+  // Same scope the quick-filter chips are picking a slice of — everything
+  // but the quick filter itself, so the chip counts (and the top 4 stat
+  // cards via statsScopeTasks) actually move when you pick an Assignee or
+  // Status instead of staying frozen at the whole month's numbers.
+  const chipScopeTasks = useMemo(() => {
+    let list = monthScopedTasks;
+    if (assigneeFilter !== "all") list = list.filter((t) => effectiveAssigneeEmail(t) === assigneeFilter);
+    if (workStatusFilter !== "all") list = list.filter((t) => t.status === workStatusFilter);
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) => t.title.toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [monthScopedTasks, assigneeFilter, workStatusFilter, searchQuery]);
+
   const quickFilterCounts = useMemo(
     () => ({
-      all: monthScopedTasks.length,
-      mine: monthScopedTasks.filter(isMineForAdmin).length,
-      urgent: monthScopedTasks.filter((t) => t.is_urgent).length,
-      overdue: monthScopedTasks.filter(isOverdueTask).length,
-      pending_review: monthScopedTasks.filter(isPendingReviewState).length,
-      approved: monthScopedTasks.filter((t) => {
+      all: chipScopeTasks.length,
+      mine: chipScopeTasks.filter(isMineForAdmin).length,
+      urgent: chipScopeTasks.filter((t) => t.is_urgent).length,
+      overdue: chipScopeTasks.filter(isOverdueTask).length,
+      pending_review: chipScopeTasks.filter(isPendingReviewState).length,
+      approved: chipScopeTasks.filter((t) => {
         const st = computeApprovalState(t);
         return st === "approved" || st === "auto_approved";
       }).length,
     }),
-    [monthScopedTasks, email]
+    [chipScopeTasks, email]
   );
 
   const adminVisibleTasks = useMemo(() => {
@@ -883,13 +900,45 @@ export default function TasksPage() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowAssignForm((v) => !v)}
-            className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-blue-600 text-white text-sm font-bold shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] transition hover:bg-blue-700 hover:-translate-y-0.5 shrink-0"
-          >
-            <Plus className="w-4 h-4" /> Assign Task
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full p-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+                aria-label="Previous month"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-bold text-[var(--card-foreground)] px-1 min-w-[130px] text-center">
+                {monthLabel(monthCursor)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+                aria-label="Next month"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            {monthLabel(monthCursor) !== monthLabel(new Date()) && (
+              <button
+                type="button"
+                onClick={() => setMonthCursor(new Date())}
+                className="text-xs font-bold text-[var(--accent)] hover:opacity-80 px-1 shrink-0"
+              >
+                Back to this month
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowAssignForm((v) => !v)}
+              className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-blue-600 text-white text-sm font-bold shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] transition hover:bg-blue-700 hover:-translate-y-0.5 shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Assign Task
+            </button>
+          </div>
         </div>
 
         {showAssignForm && (
@@ -1062,39 +1111,6 @@ export default function TasksPage() {
         </div>
 
         <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_24px_-12px_rgba(15,23,42,0.1)] p-4 mb-5 space-y-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-full p-1">
-              <button
-                type="button"
-                onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="p-2 rounded-full hover:bg-white text-slate-500"
-                aria-label="Previous month"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm font-bold text-[var(--card-foreground)] px-2 min-w-[140px] text-center">
-                {monthLabel(monthCursor)}
-              </span>
-              <button
-                type="button"
-                onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                className="p-2 rounded-full hover:bg-white text-slate-500"
-                aria-label="Next month"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            {monthLabel(monthCursor) !== monthLabel(new Date()) && (
-              <button
-                type="button"
-                onClick={() => setMonthCursor(new Date())}
-                className="text-xs font-bold text-[var(--accent)] hover:opacity-80 px-2"
-              >
-                Back to this month
-              </button>
-            )}
-          </div>
-
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
