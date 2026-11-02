@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { dispatchTaskNotification } from "@/app/actions";
 import { useAuth } from "@/components/AuthProvider";
 import type { ProductionBug, ProductionBugCause } from "@/type/productionBug";
 import {
@@ -196,22 +197,27 @@ export default function ProductionBugsPage() {
       screenshotUrl = supabase.storage.from("bug-screenshots").getPublicUrl(filePath).data.publicUrl;
     }
 
-    const { error } = await supabase.from("production_bugs").insert({
-      title: title.trim(),
-      description: description.trim() || null,
-      site_name: siteName.trim() || null,
-      site_domain: siteLink.trim() ? normalizeSiteLink(siteLink) : null,
-      developer_name: developer.name,
-      developer_email: developer.email,
-      reported_by_name: name || "Unknown Operator",
-      reported_by_email: email || "",
-      status: "open",
-      developer_seen: false,
-      cause_type: causeType,
-      caused_by_name: causeType === "human_error" ? causedBy!.name : null,
-      caused_by_email: causeType === "human_error" ? causedBy!.email : null,
-      screenshot_url: screenshotUrl,
-    });
+    const trimmedTitle = title.trim();
+    const { data: inserted, error } = await supabase
+      .from("production_bugs")
+      .insert({
+        title: trimmedTitle,
+        description: description.trim() || null,
+        site_name: siteName.trim() || null,
+        site_domain: siteLink.trim() ? normalizeSiteLink(siteLink) : null,
+        developer_name: developer.name,
+        developer_email: developer.email,
+        reported_by_name: name || "Unknown Operator",
+        reported_by_email: email || "",
+        status: "open",
+        developer_seen: false,
+        cause_type: causeType,
+        caused_by_name: causeType === "human_error" ? causedBy!.name : null,
+        caused_by_email: causeType === "human_error" ? causedBy!.email : null,
+        screenshot_url: screenshotUrl,
+      })
+      .select("id")
+      .single();
 
     setIsSaving(false);
 
@@ -219,6 +225,13 @@ export default function ProductionBugsPage() {
       setSaveError(error.message);
       return;
     }
+
+    dispatchTaskNotification(
+      developer.email,
+      `${name || "Someone"} assigned you a bug: "${trimmedTitle}"`,
+      `/production-bugs?bugId=${inserted.id}`,
+      "bug_assigned"
+    ).catch(() => {});
 
     setTitle("");
     setDescription("");
@@ -261,6 +274,7 @@ export default function ProductionBugsPage() {
   const submitReassign = async (bugId: number) => {
     const assignee = teamMembers.find((m) => m.email === reassignToEmail);
     if (!assignee) return;
+    const bug = bugs.find((b) => b.id === bugId);
 
     setIsReassigning(true);
     setReassignError(null);
@@ -280,6 +294,13 @@ export default function ProductionBugsPage() {
       setReassignError(error.message);
       return;
     }
+
+    dispatchTaskNotification(
+      assignee.email,
+      `${name || "Someone"} reassigned you a bug: "${bug?.title || "Untitled"}"`,
+      `/production-bugs?bugId=${bugId}`,
+      "bug_assigned"
+    ).catch(() => {});
 
     setReassigningId(null);
     setReassignToEmail("");

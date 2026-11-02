@@ -2,6 +2,84 @@
 
 import { supabase } from "@/lib/supabase";
 import { createClient } from '@supabase/supabase-js';
+import webpush from 'web-push';
+
+// Real Web Push — survives a backgrounded/discarded tab (Chrome's Memory
+// Saver suspends a background tab's JS, killing any in-page realtime
+// subscription) and, depending on OS/browser, even a fully closed browser.
+// The in-app bell/banner and the sidebar badges still ride the lighter
+// Supabase Realtime subscription on user_notifications; this is purely the
+// OS-level popup path.
+function vapidConfigured() {
+  return !!(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT);
+}
+
+async function pushToEmails(emails: string[], title: string, body: string, url: string) {
+  if (!vapidConfigured()) return;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return;
+
+  const uniqueEmails = [...new Set(emails.filter(Boolean))];
+  if (uniqueEmails.length === 0) return;
+
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  );
+
+  const adminDb = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  const { data: subs } = await adminDb
+    .from('push_subscriptions')
+    .select('id, endpoint, p256dh, auth')
+    .in('user_email', uniqueEmails);
+
+  if (!subs || subs.length === 0) return;
+
+  const payload = JSON.stringify({ title, body, url });
+
+  await Promise.all(
+    subs.map(async (sub) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload
+        );
+      } catch (error: any) {
+        // 404/410 means the subscription is gone (browser data cleared,
+        // permission revoked, etc.) — stop trying to push to it.
+        if (error?.statusCode === 404 || error?.statusCode === 410) {
+          await adminDb.from('push_subscriptions').delete().eq('id', sub.id);
+        }
+      }
+    })
+  );
+}
+
+export async function savePushSubscription(
+  userEmail: string,
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } }
+) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return { success: false, error: 'Missing keys' };
+  if (!userEmail || !subscription?.endpoint) return { success: false, error: 'Missing subscription' };
+
+  const adminDb = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  const { error } = await adminDb.from('push_subscriptions').upsert(
+    {
+      user_email: userEmail,
+      endpoint: subscription.endpoint,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
+    },
+    { onConflict: 'endpoint' }
+  );
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
 
 const WEBHOOK_URL = 'https://n8n.bizscale.pk/webhook/a5a888cd-8be6-46d4-a641-03c98dd3c8b0';
 
@@ -323,6 +401,12 @@ export async function dispatchCompletionNotification(websiteId: number, reqTitle
 
     if (notifications.length > 0) {
       await adminDb.from('user_notifications').insert(notifications);
+      await pushToEmails(
+        targetUsers.map((u) => u.email),
+        "Website CRM",
+        `${supportName} has checked off a requirement ("${reqTitle}") for ${siteName}`,
+        `/websites/${websiteId}`
+      );
     }
 
     return { success: true };
@@ -360,6 +444,12 @@ export async function dispatchWebsiteEditNotification(tabId: string, tabTitle: s
 
     if (notifications.length > 0) {
       await adminDb.from('user_notifications').insert(notifications);
+      await pushToEmails(
+        targetUsers.map((u) => u.email),
+        "Website CRM",
+        `${authorName} added a new edit request for "${tabTitle}"`,
+        `/website-edits?tab=${encodeURIComponent(tabId)}`
+      );
     }
 
     return { success: true };
@@ -389,6 +479,7 @@ export async function dispatchTaskNotification(userEmail: string, message: strin
       is_read: false,
       source,
     });
+    await pushToEmails([userEmail], "Website CRM", message, linkUrl);
     return { success: true };
   } catch (error: any) {
     console.error("Task notification dispatch failed:", error);

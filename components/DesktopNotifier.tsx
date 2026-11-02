@@ -1,91 +1,79 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { savePushSubscription } from "@/app/actions";
 import { BellRing } from "lucide-react";
 
-type NotificationRow = {
-  id: string;
-  message: string;
-  link_url: string;
-};
-
-type BugRow = {
-  id: number;
-  title: string;
-  developer_seen: boolean;
-};
-
-function fire(router: ReturnType<typeof useRouter>, body: string, tag: string, linkUrl?: string) {
-  if (typeof window === "undefined" || Notification.permission !== "granted") return;
-  const popup = new Notification("Website CRM", { body, icon: "/favicon.ico", tag });
-  popup.onclick = () => {
-    window.focus();
-    if (linkUrl) router.push(linkUrl);
-    popup.close();
-  };
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
-// Fires a real OS/browser-level notification (the popup that floats above
-// the taskbar, not just our in-app bell/banner) for task assignments
-// (via user_notifications, which dispatchTaskNotification/etc. already
-// write to) and production bug assignments/reassignments (production_bugs
-// has no equivalent notification row, so it's subscribed directly).
+// Registers a real Web Push subscription — this is what lets a task/bug
+// assignment notification reach someone even if their tab was backgrounded
+// and Chrome discarded it (killing any in-page realtime subscription), or
+// the browser itself isn't focused. The in-app bell/banner/badges still
+// use the lighter Supabase Realtime path for while the tab is actually
+// alive; this component only handles the OS-level popup.
+async function ensurePushSubscription(email: string) {
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidKey || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  const registration = await navigator.serviceWorker.register("/sw.js");
+  await navigator.serviceWorker.ready;
+
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+  }
+
+  const json = subscription.toJSON();
+  if (json.endpoint && json.keys?.p256dh && json.keys?.auth) {
+    await savePushSubscription(email, {
+      endpoint: json.endpoint,
+      keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+    });
+  }
+}
+
 export default function DesktopNotifier() {
   const { email } = useAuth();
-  const router = useRouter();
   // Chrome silently ignores Notification.requestPermission() unless it's
   // called from a real user gesture (a click) — calling it from an effect
   // on mount never shows the prompt and leaves permission stuck on
-  // "default" forever. So instead we show a small button the person has to
-  // click, which counts as a gesture.
+  // "default" forever. So a small button handles that gesture.
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setPermission(Notification.permission);
-    }
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    setPermission(Notification.permission);
   }, []);
 
+  // Permission already granted from a previous visit (or before push
+  // subscriptions existed) — make sure a subscription is actually on file
+  // without needing the person to click anything again.
   useEffect(() => {
-    if (!email) return;
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-
-    const channel = supabase
-      .channel(`desktop_notify_${email}_${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_email=eq.${email}` },
-        (payload) => {
-          const row = payload.new as NotificationRow;
-          fire(router, row.message, `note_${row.id}`, row.link_url);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "production_bugs", filter: `developer_email=eq.${email}` },
-        (payload) => {
-          const row = payload.new as BugRow;
-          if (!row || row.developer_seen !== false) return;
-          fire(router, `New bug assigned: "${row.title}"`, `bug_${row.id}_${Date.now()}`, `/production-bugs?bugId=${row.id}`);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [email, router]);
+    if (!email || permission !== "granted") return;
+    ensurePushSubscription(email).catch(() => {});
+  }, [email, permission]);
 
   if (permission !== "default") return null;
 
   return (
     <button
       type="button"
-      onClick={() => {
-        Notification.requestPermission().then(setPermission);
+      onClick={async () => {
+        const result = await Notification.requestPermission();
+        setPermission(result);
+        if (result === "granted" && email) {
+          ensurePushSubscription(email).catch(() => {});
+        }
       }}
       className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent-light)] text-[var(--accent)] border border-[var(--accent)]/30 rounded-full text-xs font-bold hover:opacity-80 transition-opacity shrink-0"
       title="Get a desktop popup when a task or bug is assigned to you, even if this tab is in the background"
