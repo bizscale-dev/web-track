@@ -1915,15 +1915,47 @@ export default function TasksPage() {
           </div>
         </div>
 
-        {canAssign && (
-          <button
-            type="button"
-            onClick={() => setShowAssignForm((v) => !v)}
-            className="inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-[var(--button)] text-[var(--button-text)] text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--button-hover)] shrink-0"
-          >
-            <Plus className="w-4 h-4" /> Assign Task
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--card-border)] rounded-full p-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-bold text-[var(--card-foreground)] px-1 min-w-[130px] text-center">
+              {monthLabel(monthCursor)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          {monthLabel(monthCursor) !== monthLabel(new Date()) && (
+            <button
+              type="button"
+              onClick={() => setMonthCursor(new Date())}
+              className="text-xs font-bold text-[var(--accent)] hover:opacity-80 px-1 shrink-0"
+            >
+              Back to this month
+            </button>
+          )}
+          {canAssign && (
+            <button
+              type="button"
+              onClick={() => setShowAssignForm((v) => !v)}
+              className="inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-[var(--button)] text-[var(--button-text)] text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--button-hover)] shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Assign Task
+            </button>
+          )}
+        </div>
       </div>
 
       {canAssign && showAssignForm && (
