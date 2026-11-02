@@ -56,6 +56,29 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showBell]);
 
+  // Push new rows into the dropdown live instead of only on the mount fetch
+  // above — otherwise a task assigned while this tab is already open stays
+  // invisible here until the page is reloaded.
+  useEffect(() => {
+    if (!showBell || !userEmail) return;
+
+    const channel = supabase
+      .channel(`notification_bell_${userEmail}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_email=eq.${userEmail}` },
+        (payload) => {
+          const row = payload.new as AppNotification;
+          setNotifications((prev) => (prev.some((n) => n.id === row.id) ? prev : [row, ...prev].slice(0, 20)));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [showBell, userEmail]);
+
   if (!showBell) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;

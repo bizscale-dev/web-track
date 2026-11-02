@@ -39,6 +39,25 @@ export default function NotificationBanner() {
         .limit(5);
       setNotifications(data || []);
     })();
+
+    // Same live-update problem as the bell: without this, a notification
+    // dispatched while the tab is already open never appears in the banner
+    // until the page is reloaded.
+    const channel = supabase
+      .channel(`notification_banner_${email}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_email=eq.${email}` },
+        (payload) => {
+          const row = payload.new as AppNotification;
+          setNotifications((prev) => (prev.some((n) => n.id === row.id) ? prev : [row, ...prev]));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [canSee, email]);
 
   if (!canSee) return null;

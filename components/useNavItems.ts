@@ -39,7 +39,8 @@ export function useNavItems() {
 
   useEffect(() => {
     if (!email || role === "user" || !role) return;
-    (async () => {
+
+    const fetchCounts = async () => {
       let taskCount = 0;
       if (role === "admin") {
         const { count } = await supabase
@@ -91,7 +92,28 @@ export function useNavItems() {
         .eq("source", "website_edit")
         .eq("is_read", false);
       setHasEditNotification((editCount || 0) > 0);
-    })();
+    };
+
+    fetchCounts();
+
+    // Re-run the counts live whenever a task/bug/notification changes —
+    // without this, the sidebar badge only ever reflected the state at the
+    // moment the page first loaded, so a freshly-assigned task sat invisible
+    // until the assignee reloaded or navigated somewhere.
+    const channel = supabase
+      .channel(`nav_badges_${email}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "assigned_tasks" }, fetchCounts)
+      .on("postgres_changes", { event: "*", schema: "public", table: "production_bugs" }, fetchCounts)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_notifications", filter: `user_email=eq.${email}` },
+        fetchCounts
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [role, email]);
 
   if (role === "user" || !role) {

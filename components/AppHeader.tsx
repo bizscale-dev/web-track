@@ -6,6 +6,7 @@ import { Search, User as UserIcon } from "lucide-react";
 import LogoMark from "@/components/LogoMark";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell";
+import DesktopNotifier from "@/components/DesktopNotifier";
 import NavDrawer from "@/components/NavDrawer";
 import NotificationBanner from "@/components/NotificationBanner";
 import RouteBreadcrumb from "@/components/RouteBreadcrumb";
@@ -96,6 +97,7 @@ export default function AppHeader() {
             </a>
           ) : (
             <div className="flex items-center gap-2 sm:gap-4">
+              <DesktopNotifier />
               <NotificationBell />
 
               <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-slate-200">
