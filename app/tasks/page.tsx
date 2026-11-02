@@ -662,14 +662,7 @@ export default function TasksPage() {
         ? tasks.filter((t) => t.assigned_by_email === email || t.reassigned_by_email === email)
         : tasks;
 
-    // Urgent first, then anything not yet completed, newest first within each group.
-    return [...base].sort((a, b) => {
-      if (a.is_urgent !== b.is_urgent) return a.is_urgent ? -1 : 1;
-      const aDone = a.status === "completed";
-      const bDone = b.status === "completed";
-      if (aDone !== bDone) return aDone ? 1 : -1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    return [...base].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [tasks, tab, email]);
 
   const pendingMineCount = tasks.filter(
@@ -754,13 +747,7 @@ export default function TasksPage() {
       );
     }
 
-    return [...list].sort((a, b) => {
-      if (a.is_urgent !== b.is_urgent) return a.is_urgent ? -1 : 1;
-      const aDone = a.status === "completed";
-      const bDone = b.status === "completed";
-      if (aDone !== bDone) return aDone ? 1 : -1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    return [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [tasks, quickFilter, workStatusFilter, assigneeFilter, searchQuery, email]);
 
   // Keeps a task open by default (and swaps to the next visible one if the
