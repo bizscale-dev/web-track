@@ -63,7 +63,7 @@ export default function NotificationBell() {
     if (!showBell || !userEmail) return;
 
     const channel = supabase
-      .channel(`notification_bell_${userEmail}`)
+      .channel(`notification_bell_${userEmail}_${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_email=eq.${userEmail}` },

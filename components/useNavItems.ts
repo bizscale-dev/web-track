@@ -100,8 +100,12 @@ export function useNavItems() {
     // without this, the sidebar badge only ever reflected the state at the
     // moment the page first loaded, so a freshly-assigned task sat invisible
     // until the assignee reloaded or navigated somewhere.
+    // A topic name reused across effect re-runs can hand back a channel
+    // that's already past subscribe() (Supabase caches by topic), and
+    // calling .on() on that throws — so each mount gets its own unique
+    // topic instead of one keyed only on email.
     const channel = supabase
-      .channel(`nav_badges_${email}`)
+      .channel(`nav_badges_${email}_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "assigned_tasks" }, fetchCounts)
       .on("postgres_changes", { event: "*", schema: "public", table: "production_bugs" }, fetchCounts)
       .on(

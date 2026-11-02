@@ -31,7 +31,7 @@ export default function DesktopNotifier() {
     }
 
     const channel = supabase
-      .channel(`user_notifications_desktop_${email}`)
+      .channel(`user_notifications_desktop_${email}_${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {

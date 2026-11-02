@@ -44,7 +44,7 @@ export default function NotificationBanner() {
     // dispatched while the tab is already open never appears in the banner
     // until the page is reloaded.
     const channel = supabase
-      .channel(`notification_banner_${email}`)
+      .channel(`notification_banner_${email}_${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_email=eq.${email}` },
