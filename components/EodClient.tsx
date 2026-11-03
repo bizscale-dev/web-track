@@ -96,6 +96,7 @@ export default function EodClient() {
   const [isLoadingPastReports, setIsLoadingPastReports] = useState(false);
   const [showPastReports, setShowPastReports] = useState(false);
   const [expandedPastReports, setExpandedPastReports] = useState<Set<number>>(new Set());
+  const [submittingPastReportId, setSubmittingPastReportId] = useState<number | null>(null);
 
   const canSubmit = role === "developer" || role === "manager";
 
@@ -369,6 +370,25 @@ export default function EodClient() {
 
     if (!error && data) {
       setReport(data as EodReport);
+    }
+  };
+
+  const submitPastReport = async (pastReport: EodReportWithEntries) => {
+    if (!window.confirm(`Submit the EOD for ${pastReport.report_date}?`)) return;
+
+    setSubmittingPastReportId(pastReport.id);
+    const { data, error } = await supabase
+      .from("eod_reports")
+      .update({ status: "submitted", submitted_at: new Date().toISOString() })
+      .eq("id", pastReport.id)
+      .select("*")
+      .single();
+    setSubmittingPastReportId(null);
+
+    if (!error && data) {
+      setPastReports((current) =>
+        current.map((r) => (r.id === pastReport.id ? { ...r, ...(data as EodReport) } : r))
+      );
     }
   };
 
@@ -983,41 +1003,60 @@ export default function EodClient() {
                     )
                   );
 
+                  const isSubmittingThis = submittingPastReportId === pastReport.id;
+
                   return (
                     <div key={pastReport.id} className="border border-gray-100 rounded-xl overflow-hidden">
-                      <button
-                        onClick={() => togglePastReport(pastReport.id)}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-3">
+                      <div className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors gap-3">
+                        <button
+                          onClick={() => togglePastReport(pastReport.id)}
+                          className="flex items-center gap-3 text-left min-w-0"
+                        >
                           {isOpen ? (
                             <ChevronDown className="w-4 h-4 text-[var(--card-muted)] shrink-0" />
                           ) : (
                             <ChevronRight className="w-4 h-4 text-[var(--card-muted)] shrink-0" />
                           )}
-                          <div>
+                          <div className="min-w-0">
                             <p className="font-bold text-sm text-[var(--card-foreground)]">{pastReport.report_date}</p>
                             <p className="text-xs text-[var(--card-muted)]">
                               {pastReport.eod_entries.length} page{pastReport.eod_entries.length === 1 ? "" : "s"} across{" "}
                               {entriesBySite.length} site{entriesBySite.length === 1 ? "" : "s"}
                             </p>
                           </div>
-                        </div>
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 ${
-                            pastReport.status === "submitted"
-                              ? "text-emerald-600 bg-emerald-50 border border-emerald-100"
-                              : "text-amber-600 bg-amber-50 border border-amber-100"
-                          }`}
-                        >
-                          {pastReport.status === "submitted" ? (
-                            <CheckCircle2 className="w-3 h-3" />
-                          ) : (
-                            <Clock className="w-3 h-3" />
+                        </button>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {pastReport.status === "draft" && pastReport.eod_entries.length > 0 && (
+                            <button
+                              onClick={() => submitPastReport(pastReport)}
+                              disabled={isSubmittingThis}
+                              className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                            >
+                              {isSubmittingThis ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              Submit
+                            </button>
                           )}
-                          {pastReport.status === "submitted" ? "Submitted" : "In Progress"}
-                        </span>
-                      </button>
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 ${
+                              pastReport.status === "submitted"
+                                ? "text-emerald-600 bg-emerald-50 border border-emerald-100"
+                                : "text-amber-600 bg-amber-50 border border-amber-100"
+                            }`}
+                          >
+                            {pastReport.status === "submitted" ? (
+                              <CheckCircle2 className="w-3 h-3" />
+                            ) : (
+                              <Clock className="w-3 h-3" />
+                            )}
+                            {pastReport.status === "submitted" ? "Submitted" : "In Progress"}
+                          </span>
+                        </div>
+                      </div>
 
                       {isOpen && (
                         <div className="border-t border-gray-100 divide-y divide-gray-100">
