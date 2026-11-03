@@ -594,7 +594,7 @@ export default function EodClient() {
                           value={siteSearch}
                           onChange={(e) => setSiteSearch(e.target.value)}
                           placeholder="Search sites..."
-                          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+                          className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                         />
                       </div>
                       <div className="max-h-96 overflow-y-auto space-y-1.5 pr-1 mb-4">
@@ -631,14 +631,14 @@ export default function EodClient() {
                         value={manualSiteName}
                         onChange={(e) => setManualSiteName(e.target.value)}
                         placeholder="Site name"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+                        className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                       />
                       <input
                         type="text"
                         value={manualSiteLink}
                         onChange={(e) => setManualSiteLink(e.target.value)}
                         placeholder="Site link (optional, e.g. example.com)"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+                        className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                       />
                       <div className="flex gap-2">
                         <button
@@ -750,7 +750,7 @@ export default function EodClient() {
                             ? "e.g. New workflow / feature"
                             : "e.g. New pricing page (not live yet)"
                         }
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+                        className="flex-1 px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                       />
                       <button
                         type="button"
@@ -791,7 +791,7 @@ export default function EodClient() {
                             onChange={(e) => updateDraftNotes(p.key, e.target.value)}
                             placeholder="Describe what changes were made on this page..."
                             rows={2}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
+                            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
                           />
                         </div>
                       ))}
@@ -870,21 +870,21 @@ export default function EodClient() {
                             value={editLabel}
                             onChange={(e) => setEditLabel(e.target.value)}
                             placeholder="Page name"
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+                            className="w-full px-3 py-1.5 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                           />
                           <input
                             type="text"
                             value={editUrl}
                             onChange={(e) => setEditUrl(e.target.value)}
                             placeholder="Page URL (optional)"
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+                            className="w-full px-3 py-1.5 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
                           />
                           <textarea
                             value={editNotes}
                             onChange={(e) => setEditNotes(e.target.value)}
                             placeholder="Describe what changed on this page..."
                             rows={2}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
+                            className="w-full px-3 py-1.5 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
                           />
                           <div className="flex gap-2">
                             <button
