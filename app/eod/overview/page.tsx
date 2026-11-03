@@ -385,7 +385,7 @@ export default function EodOverviewPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search employee name, page, or keyword..."
-              className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-200 rounded-full bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:bg-white transition-colors"
+              className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-200 text-slate-900 placeholder-slate-400 rounded-full bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:bg-white transition-colors"
             />
           </div>
           <select
@@ -566,7 +566,7 @@ export default function EodOverviewPage() {
                                       type="datetime-local"
                                       value={extendDueAtDraft}
                                       onChange={(e) => setExtendDueAtDraft(e.target.value)}
-                                      className="w-full px-3 py-2 text-sm border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+                                      className="w-full px-3 py-2 text-sm border border-rose-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
                                     />
                                     {extendError && <p className="text-xs font-bold text-rose-600">{extendError}</p>}
                                     <div className="flex gap-2">

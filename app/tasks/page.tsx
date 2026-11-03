@@ -965,19 +965,19 @@ export default function TasksPage() {
               value={assignTitle}
               onChange={(e) => setAssignTitle(e.target.value)}
               placeholder="Task title"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
             />
             <textarea
               value={assignDescription}
               onChange={(e) => setAssignDescription(e.target.value)}
               placeholder="Details (optional)"
               rows={3}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
             />
             <select
               value={assignToEmail}
               onChange={(e) => setAssignToEmail(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] bg-white"
             >
               <option value="">Assign to...</option>
               {assignableMembers.map((m) => (
@@ -995,7 +995,7 @@ export default function TasksPage() {
                 value={assignDueAt}
                 onChange={(e) => setAssignDueAt(e.target.value)}
                 required
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
               />
             </div>
             <button
@@ -1136,7 +1136,7 @@ export default function TasksPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search tasks by title or description..."
-                className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-200 rounded-full bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:bg-white transition-colors"
+                className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-200 text-slate-900 placeholder-slate-400 rounded-full bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] focus:bg-white transition-colors"
               />
             </div>
             <select
@@ -1624,18 +1624,32 @@ export default function TasksPage() {
                   )}
 
                   <div className="border-t border-[var(--card-border)] pt-4 space-y-3">
-                    {(isAdmin || isManager) && selectedDerived.isOverdue && !selectedDerived.isCompleted && (
-                      <div className="rounded-2xl bg-rose-50/60 border border-rose-200/80 p-4 space-y-2.5">
+                    {(isAdmin || isManager) && !selectedDerived.isCompleted && (
+                      <div
+                        className={`rounded-2xl border p-4 space-y-2.5 ${
+                          selectedDerived.isOverdue
+                            ? "bg-rose-50/60 border-rose-200/80"
+                            : "bg-sky-50/60 border-sky-200/80"
+                        }`}
+                      >
                         {extendingId === selectedTask.id ? (
                           <div className="space-y-2">
-                            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-700">
+                            <label
+                              className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${
+                                selectedDerived.isOverdue ? "text-rose-700" : "text-sky-700"
+                              }`}
+                            >
                               <CalendarClock className="w-3.5 h-3.5" /> New Deadline
                             </label>
                             <input
                               type="datetime-local"
                               value={extendDueAtDraft}
                               onChange={(e) => setExtendDueAtDraft(e.target.value)}
-                              className="w-full px-3 py-2 text-sm border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+                              className={`w-full px-3 py-2 text-sm border text-gray-900 rounded-lg focus:outline-none focus:ring-2 bg-white ${
+                                selectedDerived.isOverdue
+                                  ? "border-rose-200 focus:ring-rose-500/20 focus:border-rose-500"
+                                  : "border-sky-200 focus:ring-sky-500/20 focus:border-sky-500"
+                              }`}
                             />
                             {extendError && <p className="text-xs font-bold text-rose-600">{extendError}</p>}
                             <div className="flex gap-2">
@@ -1643,7 +1657,11 @@ export default function TasksPage() {
                                 type="button"
                                 onClick={() => submitExtend(selectedTask.id)}
                                 disabled={isExtending || !extendDueAtDraft}
-                                className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-bold hover:bg-rose-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                                className={`px-4 py-2 text-white rounded-lg text-sm font-bold disabled:opacity-40 transition-colors flex items-center gap-1.5 ${
+                                  selectedDerived.isOverdue
+                                    ? "bg-rose-600 hover:bg-rose-700"
+                                    : "bg-sky-600 hover:bg-sky-700"
+                                }`}
                               >
                                 {isExtending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
                                 Extend Deadline
@@ -1662,9 +1680,12 @@ export default function TasksPage() {
                           <button
                             type="button"
                             onClick={() => startExtend(selectedTask)}
-                            className="text-sm font-bold text-rose-700 hover:text-rose-800 flex items-center gap-1.5"
+                            className={`text-sm font-bold flex items-center gap-1.5 ${
+                              selectedDerived.isOverdue ? "text-rose-700 hover:text-rose-800" : "text-sky-700 hover:text-sky-800"
+                            }`}
                           >
-                            <CalendarClock className="w-4 h-4" /> Extend Deadline — it's past due
+                            <CalendarClock className="w-4 h-4" />
+                            {selectedDerived.isOverdue ? "Extend Deadline — it's past due" : "Extend Deadline"}
                           </button>
                         )}
                       </div>
@@ -1778,7 +1799,7 @@ export default function TasksPage() {
                         <select
                           value={reassignToEmail}
                           onChange={(e) => setReassignToEmail(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
                         >
                           <option value="">Reassign to...</option>
                           {assignableMembers
@@ -1822,7 +1843,7 @@ export default function TasksPage() {
                               placeholder="Add notes about how this was completed..."
                               rows={3}
                               autoFocus
-                              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+                              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
                             />
                             {selectedTask.due_at && new Date() > new Date(selectedTask.due_at) && (
                               <textarea
@@ -1830,7 +1851,7 @@ export default function TasksPage() {
                                 onChange={(e) => setLateReasonDraft(e.target.value)}
                                 placeholder="This is past its deadline — explain why (required)..."
                                 rows={2}
-                                className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none bg-amber-50/40"
+                                className="w-full px-3 py-2 text-sm border border-amber-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none bg-amber-50/40"
                               />
                             )}
                             {completeError && <p className="text-xs font-bold text-rose-600">{completeError}</p>}
@@ -1888,7 +1909,7 @@ export default function TasksPage() {
                           placeholder="What needs to be revised?"
                           rows={2}
                           autoFocus
-                          className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none bg-violet-50/40"
+                          className="w-full px-3 py-2 text-sm border border-violet-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none bg-violet-50/40"
                         />
                         <div>
                           <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-700 mb-1.5">
@@ -1898,7 +1919,7 @@ export default function TasksPage() {
                             type="datetime-local"
                             value={revisionDueAtDraft}
                             onChange={(e) => setRevisionDueAtDraft(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-violet-50/40"
+                            className="w-full px-3 py-2 text-sm border border-violet-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-violet-50/40"
                           />
                         </div>
                         {revisionError && <p className="text-xs font-bold text-rose-600">{revisionError}</p>}
@@ -2026,19 +2047,19 @@ export default function TasksPage() {
             value={assignTitle}
             onChange={(e) => setAssignTitle(e.target.value)}
             placeholder="Task title"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
           />
           <textarea
             value={assignDescription}
             onChange={(e) => setAssignDescription(e.target.value)}
             placeholder="Details (optional)"
             rows={3}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] resize-none"
           />
           <select
             value={assignToEmail}
             onChange={(e) => setAssignToEmail(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] bg-white"
+            className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] bg-white"
           >
             <option value="">Assign to...</option>
             {assignableMembers.map((m) => (
@@ -2057,7 +2078,7 @@ export default function TasksPage() {
               value={assignDueAt}
               onChange={(e) => setAssignDueAt(e.target.value)}
               required
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
             />
           </div>
 
@@ -2419,7 +2440,7 @@ export default function TasksPage() {
                       placeholder="What needs to be revised?"
                       rows={2}
                       autoFocus
-                      className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none bg-violet-50/40"
+                      className="w-full px-3 py-2 text-sm border border-violet-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none bg-violet-50/40"
                     />
                     <div>
                       <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-700 mb-1.5">
@@ -2429,7 +2450,7 @@ export default function TasksPage() {
                         type="datetime-local"
                         value={revisionDueAtDraft}
                         onChange={(e) => setRevisionDueAtDraft(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-violet-50/40"
+                        className="w-full px-3 py-2 text-sm border border-violet-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-violet-50/40"
                       />
                     </div>
                     {revisionError && <p className="text-xs font-bold text-rose-600">{revisionError}</p>}
@@ -2487,7 +2508,7 @@ export default function TasksPage() {
                     <select
                       value={reassignToEmail}
                       onChange={(e) => setReassignToEmail(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
                     >
                       <option value="">Reassign to...</option>
                       {assignableMembers
@@ -2531,7 +2552,7 @@ export default function TasksPage() {
                           placeholder="Add notes about how this was completed..."
                           rows={3}
                           autoFocus
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+                          className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
                         />
                         {task.due_at && new Date() > new Date(task.due_at) && (
                           <textarea
@@ -2539,7 +2560,7 @@ export default function TasksPage() {
                             onChange={(e) => setLateReasonDraft(e.target.value)}
                             placeholder="This is past its deadline — explain why (required)..."
                             rows={2}
-                            className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none bg-amber-50/40"
+                            className="w-full px-3 py-2 text-sm border border-amber-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none bg-amber-50/40"
                           />
                         )}
                         {completeError && <p className="text-xs font-bold text-rose-600">{completeError}</p>}

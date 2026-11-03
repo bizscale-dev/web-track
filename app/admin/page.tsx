@@ -391,8 +391,8 @@ const addSecureMember = async () => {
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Issue New Credentials</h3>
               {creationError && <div className="p-2 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg">{creationError}</div>}
               <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <select value={teamRole} onChange={(e) => setTeamRole(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="px-3 py-2 text-sm bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <select value={teamRole} onChange={(e) => setTeamRole(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                   <option value="developer">Developer</option>
                   <option value="content_writer">Content Writer</option>
                   <option value="seo_person">SEO Person</option>
@@ -402,10 +402,10 @@ const addSecureMember = async () => {
                   <option value="designer">Designer (view only)</option>
                 </select>
               </div>
-              <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 text-sm bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <input type="text" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-3 pr-16 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                  <input type="text" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-3 pr-16 py-2 text-sm bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
                   <button type="button" onClick={generatePassword} className="absolute right-2 top-[5px] px-2 py-1 bg-slate-200 text-slate-700 text-xs font-bold rounded hover:bg-slate-300 transition">Auto</button>
                 </div>
                 <button type="button" onClick={addSecureMember} disabled={!name.trim() || !email.trim() || !password.trim() || isCreating} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm flex items-center justify-center shrink-0 w-[100px]">
@@ -421,8 +421,8 @@ const addSecureMember = async () => {
                 {editingId === member.id ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-2">
-                      <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                      <select value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                      <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 text-sm bg-white border border-slate-200 text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      <select value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
                         <option value="developer">Developer</option>
                         <option value="content_writer">Content Writer</option>
                         <option value="seo_person">SEO Person</option>

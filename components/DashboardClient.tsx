@@ -373,7 +373,7 @@ export default function DashboardClient({
                 <span className="sr-only">Search websites</span>
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white/90 pl-9 pr-3 text-sm shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-light)]"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white/90 text-slate-900 placeholder-slate-400 pl-9 pr-3 text-sm shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-light)]"
                   placeholder="Search websites..."
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}

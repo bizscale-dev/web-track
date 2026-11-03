@@ -38,14 +38,14 @@ export default function AddWebsiteForm() {
       </h2>
 
       <input
-        className="border p-2 w-full mb-3"
+        className="border border-gray-200 bg-white text-gray-900 placeholder-gray-400 p-2 w-full mb-3"
         placeholder="Website Name"
         value={websiteName}
         onChange={(e) => setWebsiteName(e.target.value)}
       />
 
       <input
-        className="border p-2 w-full mb-3"
+        className="border border-gray-200 bg-white text-gray-900 placeholder-gray-400 p-2 w-full mb-3"
         placeholder="Domain"
         value={domain}
         onChange={(e) => setDomain(e.target.value)}

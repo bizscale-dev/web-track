@@ -74,7 +74,7 @@ export default function AppHeader() {
                     if (e.key === "Enter") submitSearch();
                   }}
                   placeholder="Search websites..."
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-colors"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-colors"
                 />
               </div>
             )}

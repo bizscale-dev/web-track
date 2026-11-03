@@ -45,7 +45,7 @@ export default function SecureStatusDropdown({ site }: { site: any }) {
     <select 
       defaultValue={site.status}
       onChange={(e) => handleStatusChange(e.target.value)}
-      className="border border-gray-200 rounded-md px-3 py-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 cursor-pointer"
+      className="border border-gray-200 rounded-md px-3 py-1 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 cursor-pointer"
     >
       <option value="Pending">Pending</option>
       <option value="Pages Development">Pages Development</option>

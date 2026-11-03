@@ -169,7 +169,7 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Display Name</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none" />
+                <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none" />
               </div>
             </div>
 
@@ -177,7 +177,7 @@ export default function UserProfileSettings({ onClose }: { onClose: () => void }
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">New Password (Optional)</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="password" placeholder="Leave blank to keep current" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none" />
+                <input type="password" placeholder="Leave blank to keep current" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none" />
               </div>
             </div>
 

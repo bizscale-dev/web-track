@@ -392,14 +392,14 @@ export default function ProductionBugsPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="What's broken?"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
           />
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Details (optional)"
             rows={3}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 resize-none"
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 resize-none"
           />
           <div className="grid grid-cols-2 gap-3">
             <input
@@ -407,20 +407,20 @@ export default function ProductionBugsPage() {
               value={siteName}
               onChange={(e) => setSiteName(e.target.value)}
               placeholder="Site / project (optional)"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
             />
             <input
               type="text"
               value={siteLink}
               onChange={(e) => setSiteLink(e.target.value)}
               placeholder="Link (optional)"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
             />
           </div>
           <select
             value={developerEmail}
             onChange={(e) => setDeveloperEmail(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+            className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
           >
             <option value="">Assign to...</option>
             {teamMembers.map((m) => (
@@ -462,7 +462,7 @@ export default function ProductionBugsPage() {
             <select
               value={causedByEmail}
               onChange={(e) => setCausedByEmail(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
             >
               <option value="">Caused by...</option>
               {teamMembers.map((m) => (
@@ -707,7 +707,7 @@ export default function ProductionBugsPage() {
                     <select
                       value={reassignToEmail}
                       onChange={(e) => setReassignToEmail(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
                     >
                       <option value="">Reassign to...</option>
                       {teamMembers

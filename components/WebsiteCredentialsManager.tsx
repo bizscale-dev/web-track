@@ -128,19 +128,19 @@ export default function WebsiteCredentialsManager({
         className="mb-5 grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 lg:grid-cols-[1.4fr_1fr_1fr_auto]"
       >
         <input
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-500"
+          className="h-10 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 px-3 text-sm shadow-sm outline-none focus:border-gray-500"
           placeholder="Login URL"
           value={form.login_url}
           onChange={(event) => updateForm("login_url", event.target.value)}
         />
         <input
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-500"
+          className="h-10 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 px-3 text-sm shadow-sm outline-none focus:border-gray-500"
           placeholder="Username"
           value={form.username}
           onChange={(event) => updateForm("username", event.target.value)}
         />
         <input
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-500"
+          className="h-10 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 px-3 text-sm shadow-sm outline-none focus:border-gray-500"
           placeholder="Password"
           value={form.password}
           onChange={(event) => updateForm("password", event.target.value)}

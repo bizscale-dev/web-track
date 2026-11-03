@@ -289,7 +289,7 @@ export default function TaskManager({ websiteId, initialTasks }: { websiteId: st
           value={newTaskText}
           onChange={(e) => setNewTaskText(e.target.value)}
           placeholder="Add a custom task..."
-          className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+          className="flex-1 px-4 py-2 text-sm border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
         />
         <button
           type="submit"

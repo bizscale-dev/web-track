@@ -291,7 +291,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
                 onChange={(e) => setDomainForm(e.target.value)}
                 placeholder="https://example.com"
                 autoFocus
-                className="flex-1 max-w-md px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 max-w-md px-3 py-1.5 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button onClick={handleSaveDomain} title="Save" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md">
                 <Save className="w-4 h-4" />
@@ -339,8 +339,8 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 mb-6 p-3 bg-gray-50/50 border border-gray-100 rounded-xl">
-              <input type="text" placeholder="Page Name" className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.name} onChange={(e) => setNewTaskForm({...newTaskForm, name: e.target.value})} />
-              <input type="text" placeholder="Page URL/Link" className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.url} onChange={(e) => setNewTaskForm({...newTaskForm, url: e.target.value})} />
+              <input type="text" placeholder="Page Name" className="flex-1 min-w-0 px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.name} onChange={(e) => setNewTaskForm({...newTaskForm, name: e.target.value})} />
+              <input type="text" placeholder="Page URL/Link" className="flex-1 min-w-0 px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={newTaskForm.url} onChange={(e) => setNewTaskForm({...newTaskForm, url: e.target.value})} />
               <button onClick={handleAddTask} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shrink-0 flex items-center justify-center"><Plus className="w-5 h-5" /></button>
             </div>
 
@@ -357,8 +357,8 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
                       <tr key={task.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
                         {editingTaskId === task.id ? (
                           <>
-                            <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 border rounded text-xs" value={editTaskForm.name} onChange={e => setEditTaskForm({...editTaskForm, name: e.target.value})} /></td>
-                            <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 border rounded text-xs" value={editTaskForm.url} onChange={e => setEditTaskForm({...editTaskForm, url: e.target.value})} /></td>
+                            <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 bg-white border border-gray-200 text-gray-900 rounded text-xs" value={editTaskForm.name} onChange={e => setEditTaskForm({...editTaskForm, name: e.target.value})} /></td>
+                            <td className="px-4 py-2"><input type="text" className="w-full px-2 py-1 bg-white border border-gray-200 text-gray-900 rounded text-xs" value={editTaskForm.url} onChange={e => setEditTaskForm({...editTaskForm, url: e.target.value})} /></td>
                             <td className="px-4 py-2 text-right space-x-2">
                               <button onClick={() => handleSaveEditTask(task.id)} className="text-green-600 hover:text-green-800"><Save className="w-4 h-4" /></button>
                               <button onClick={() => setEditingTaskId(null)} className="text-gray-400 hover:text-gray-600">Cancel</button>
@@ -414,7 +414,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
                     Developer {isCommand ? null : <Lock className="w-3 h-3 text-gray-400" />}
                   </label>
                   {isCommand ? (
-                    <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.developer} onChange={e => setTeamForm({...teamForm, developer: e.target.value})}>
+                    <select className="w-full px-3 py-2 border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.developer} onChange={e => setTeamForm({...teamForm, developer: e.target.value})}>
                       <option value="">Unassigned</option>
                       {developers.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                     </select>
@@ -430,7 +430,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
                     Content Writer {isCommand ? null : <Lock className="w-3 h-3 text-gray-400" />}
                   </label>
                   {isCommand ? (
-                    <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.content_writer} onChange={e => setTeamForm({...teamForm, content_writer: e.target.value})}>
+                    <select className="w-full px-3 py-2 border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.content_writer} onChange={e => setTeamForm({...teamForm, content_writer: e.target.value})}>
                       <option value="">Unassigned</option>
                       {writers.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
                     </select>
@@ -446,7 +446,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
                     SEO Person {isCommand ? null : <Lock className="w-3 h-3 text-gray-400" />}
                   </label>
                   {isCommand ? (
-                    <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.seo_person} onChange={e => setTeamForm({...teamForm, seo_person: e.target.value})}>
+                    <select className="w-full px-3 py-2 border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.seo_person} onChange={e => setTeamForm({...teamForm, seo_person: e.target.value})}>
                       <option value="">Unassigned</option>
                       {seos.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                     </select>
@@ -467,7 +467,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
                     <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                       Priority {role === "user" && <Lock className="w-3 h-3 text-gray-400" />}
                     </label>
-                    <select disabled={role === "user"} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.priority} onChange={e => setTeamForm({...teamForm, priority: e.target.value})}>
+                    <select disabled={role === "user"} className="w-full px-3 py-2 border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed bg-white" value={teamForm.priority} onChange={e => setTeamForm({...teamForm, priority: e.target.value})}>
                       <option value="Low">Low</option><option value="Normal">Normal</option><option value="High">High</option><option value="Urgent">Urgent</option>
                     </select>
                   </div>
@@ -524,9 +524,9 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
               </div>
             ) : isEditingCreds ? (
               <div className="space-y-3">
-                <input type="text" placeholder="Admin Login URL" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" value={credsForm.loginUrl} onChange={e => setCredsForm({...credsForm, loginUrl: e.target.value})} />
-                <input type="text" placeholder="Username" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" value={credsForm.username} onChange={e => setCredsForm({...credsForm, username: e.target.value})} />
-                <input type="text" placeholder="Password" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" value={credsForm.password} onChange={e => setCredsForm({...credsForm, password: e.target.value})} />
+                <input type="text" placeholder="Admin Login URL" className="w-full px-3 py-2 bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" value={credsForm.loginUrl} onChange={e => setCredsForm({...credsForm, loginUrl: e.target.value})} />
+                <input type="text" placeholder="Username" className="w-full px-3 py-2 bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" value={credsForm.username} onChange={e => setCredsForm({...credsForm, username: e.target.value})} />
+                <input type="text" placeholder="Password" className="w-full px-3 py-2 bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" value={credsForm.password} onChange={e => setCredsForm({...credsForm, password: e.target.value})} />
                 <div className="flex gap-2 pt-2">
                   <button onClick={handleSaveCreds} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600">Save Credentials</button>
                   <button onClick={() => { setIsEditingCreds(false); setCredsForm({ loginUrl: currentCreds.loginUrl || "", username: currentCreds.username || "", password: currentCreds.password || "" }); }} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Cancel</button>
@@ -569,7 +569,7 @@ export default function ClientPage({ initialWebsite }: { initialWebsite: any }) 
             
             {isEditingNotes ? (
               <div className="flex flex-col h-full">
-                <textarea className="w-full flex-grow min-h-[150px] p-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none mb-3 resize-none" placeholder="Enter notes, server details, client requests..." value={notesForm} onChange={(e) => setNotesForm(e.target.value)} />
+                <textarea className="w-full flex-grow min-h-[150px] p-3 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none mb-3 resize-none" placeholder="Enter notes, server details, client requests..." value={notesForm} onChange={(e) => setNotesForm(e.target.value)} />
                 <div className="flex gap-2">
                   <button onClick={handleSaveNotes} className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600">Save Notes</button>
                   <button onClick={() => { setNotesForm(website.notes || ""); setIsEditingNotes(false); }} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Cancel</button>

@@ -246,7 +246,7 @@ export default function WebsiteEditsClient() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search tabs..."
-                className="w-full pl-8 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-white shadow-sm"
+                className="w-full pl-8 pr-3 py-2 text-xs border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-white shadow-sm"
               />
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
@@ -297,7 +297,7 @@ export default function WebsiteEditsClient() {
                         placeholder={`Add a new edit request for ${activeTab.title}...`}
                         rows={4}
                         autoFocus
-                        className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+                        className="w-full p-3 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
                       />
                       <div className="flex gap-2">
                         <button

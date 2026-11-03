@@ -245,13 +245,13 @@ export default function WebsitePagesManager({
         className="mb-5 grid gap-3 lg:grid-cols-[1fr_1.4fr_auto]"
       >
         <input
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-500"
+          className="h-10 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 px-3 text-sm shadow-sm outline-none focus:border-gray-500"
           placeholder="Add a page, e.g. Pricing"
           value={newPageTitle}
           onChange={(event) => setNewPageTitle(event.target.value)}
         />
         <input
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-500"
+          className="h-10 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 px-3 text-sm shadow-sm outline-none focus:border-gray-500"
           placeholder="Page link, e.g. https://site.com/pricing"
           value={newPageUrl}
           onChange={(event) => setNewPageUrl(event.target.value)}
@@ -285,7 +285,7 @@ export default function WebsitePagesManager({
 
               <div className="flex flex-col gap-2">
                 <input
-                  className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-gray-500"
+                  className="h-10 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 px-3 text-sm shadow-sm outline-none focus:border-gray-500"
                   placeholder="Page link"
                   defaultValue={page.page_url || ""}
                   disabled={savingPageIds.includes(page.id)}
@@ -313,7 +313,7 @@ export default function WebsitePagesManager({
                 ) : null}
 
                 <select
-                  className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium shadow-sm"
+                  className="h-10 rounded-md border border-gray-300 bg-white text-gray-900 px-3 text-sm font-medium shadow-sm"
                   value={page.status}
                   disabled={savingPageIds.includes(page.id)}
                   onChange={(event) =>

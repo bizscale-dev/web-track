@@ -391,7 +391,7 @@ export default function SiteReviewsClient() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search live sites..."
-          className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm"
+          className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm"
         />
       </div>
 
@@ -409,14 +409,14 @@ export default function SiteReviewsClient() {
             value={manualSiteName}
             onChange={(e) => setManualSiteName(e.target.value)}
             placeholder="Site name"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
           />
           <input
             type="text"
             value={manualSiteLink}
             onChange={(e) => setManualSiteLink(e.target.value)}
             placeholder="Site URL (optional, e.g. example.com)"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
           />
           <div className="flex gap-2">
             <button

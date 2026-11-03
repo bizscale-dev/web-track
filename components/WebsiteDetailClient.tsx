@@ -234,15 +234,15 @@ export default function WebsiteDetailClient({ website, initialTasks, initialActi
                      value={newTaskTitle}
                      onChange={(e) => setNewTaskTitle(e.target.value)}
                      placeholder="Page Name (e.g. Home)"
-                     className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                     className="flex-1 bg-white border border-gray-300 text-gray-900 placeholder-gray-400 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
                      required
                    />
-                   <input 
-                     type="text" 
+                   <input
+                     type="text"
                      value={newPageUrl}
                      onChange={(e) => setNewPageUrl(e.target.value)}
                      placeholder="URL (optional)"
-                     className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
+                     className="flex-1 bg-white border border-gray-300 text-gray-900 placeholder-gray-400 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none"
                    />
                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
                      Add
@@ -257,15 +257,15 @@ export default function WebsiteDetailClient({ website, initialTasks, initialActi
                        <div className="flex flex-col gap-2 w-full min-w-0">
                          <input 
                            type="text" 
-                           value={editTitle} 
-                           onChange={(e) => setEditTitle(e.target.value)} 
-                           className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-blue-500 outline-none" 
+                           value={editTitle}
+                           onChange={(e) => setEditTitle(e.target.value)}
+                           className="w-full bg-white border border-gray-300 text-gray-900 rounded-md px-2 py-1 text-sm focus:ring-blue-500 outline-none"
                          />
-                         <input 
-                           type="text" 
-                           value={editUrl} 
-                           onChange={(e) => setEditUrl(e.target.value)} 
-                           className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-blue-500 outline-none" 
+                         <input
+                           type="text"
+                           value={editUrl}
+                           onChange={(e) => setEditUrl(e.target.value)}
+                           className="w-full bg-white border border-gray-300 text-gray-900 rounded-md px-2 py-1 text-sm focus:ring-blue-500 outline-none"
                          />
                          <div className="flex gap-2 justify-end mt-1 shrink-0">
                            <button onClick={() => setEditingTaskId(null)} className="text-xs font-semibold px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded">Cancel</button>
@@ -309,9 +309,9 @@ export default function WebsiteDetailClient({ website, initialTasks, initialActi
              
              {isEditingCreds ? (
                <div className="space-y-2">
-                 <input value={creds.loginUrl} onChange={e => setCreds({...creds, loginUrl: e.target.value})} placeholder="Login URL" className="w-full text-sm p-2 border border-gray-300 rounded-md focus:ring-blue-500 outline-none" />
-                 <input value={creds.username} onChange={e => setCreds({...creds, username: e.target.value})} placeholder="Username" className="w-full text-sm p-2 border border-gray-300 rounded-md focus:ring-blue-500 outline-none" />
-                 <input value={creds.password} onChange={e => setCreds({...creds, password: e.target.value})} placeholder="Password" type="text" className="w-full text-sm p-2 border border-gray-300 rounded-md focus:ring-blue-500 outline-none" />
+                 <input value={creds.loginUrl} onChange={e => setCreds({...creds, loginUrl: e.target.value})} placeholder="Login URL" className="w-full text-sm p-2 bg-white border border-gray-300 text-gray-900 placeholder-gray-400 rounded-md focus:ring-blue-500 outline-none" />
+                 <input value={creds.username} onChange={e => setCreds({...creds, username: e.target.value})} placeholder="Username" className="w-full text-sm p-2 bg-white border border-gray-300 text-gray-900 placeholder-gray-400 rounded-md focus:ring-blue-500 outline-none" />
+                 <input value={creds.password} onChange={e => setCreds({...creds, password: e.target.value})} placeholder="Password" type="text" className="w-full text-sm p-2 bg-white border border-gray-300 text-gray-900 placeholder-gray-400 rounded-md focus:ring-blue-500 outline-none" />
                  <button onClick={handleSaveCredentials} disabled={isSavingCreds} className="w-full bg-gray-900 text-white p-2 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 mt-1">
                    {isSavingCreds ? 'Saving...' : 'Save Credentials'}
                  </button>
@@ -341,7 +341,7 @@ export default function WebsiteDetailClient({ website, initialTasks, initialActi
                value={notes}
                onChange={(e) => setNotes(e.target.value)}
                placeholder="Add notes, server details, or client requests here..."
-               className="w-full h-64 border border-gray-300 rounded-md p-3 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none relative z-10 bg-white"
+               className="w-full h-64 border border-gray-300 text-gray-900 placeholder-gray-400 rounded-md p-3 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none relative z-10 bg-white"
              />
              <div className="flex justify-end">
                <button 
