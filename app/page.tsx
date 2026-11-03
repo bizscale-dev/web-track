@@ -38,13 +38,13 @@ export default function LoginPage() {
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#19b295]/10 to-transparent pointer-events-none" />
       <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#19b295]/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 -left-24 w-72 h-72 bg-[#1a4741]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 -left-24 w-72 h-72 bg-[#15997f]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md z-10">
         <div className="bg-white/95 border border-white shadow-[0_24px_80px_rgba(15,23,42,0.1)] rounded-[32px] p-8 sm:p-10">
           
           <div className="flex flex-col items-center mb-8">
-            <LogoMark className="w-16 h-16 rounded-2xl shadow-lg shadow-[#1a4741]/20 mb-6" />
+            <LogoMark className="w-16 h-16 rounded-2xl shadow-lg shadow-[#19b295]/20 mb-6" />
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Secure Login</h1>
             <p className="text-sm text-slate-500 mt-2 font-medium">Enter your credentials to access the CRM</p>
           </div>
