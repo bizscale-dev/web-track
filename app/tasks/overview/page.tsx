@@ -815,7 +815,18 @@ export default function TasksOverviewPage() {
                         )}
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-white font-bold flex items-center justify-center shrink-0 text-sm overflow-hidden ring-2 ring-white shadow-sm">
                           {avatarsByEmail[person.email] ? (
-                            <img src={avatarsByEmail[person.email]} alt={person.name} className="w-full h-full object-cover" />
+                            <img
+                              src={avatarsByEmail[person.email]}
+                              alt={person.name}
+                              className="w-full h-full object-cover"
+                              onError={() =>
+                                setAvatarsByEmail((current) => {
+                                  const next = { ...current };
+                                  delete next[person.email];
+                                  return next;
+                                })
+                              }
+                            />
                           ) : person.name ? (
                             person.name.charAt(0).toUpperCase()
                           ) : (
