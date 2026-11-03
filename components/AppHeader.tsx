@@ -58,7 +58,7 @@ export default function AppHeader() {
                 onClick={toggle}
                 title="Show sidebar"
                 aria-label="Show sidebar"
-                className="hidden lg:flex items-center justify-center w-10 h-10 rounded-xl shadow-sm transition-transform hover:scale-105 shrink-0 overflow-hidden"
+                className="hidden lg:flex items-center justify-center w-10 h-10 transition-transform hover:scale-105 shrink-0"
               >
                 <LogoMark open={false} className="w-full h-full" />
               </button>

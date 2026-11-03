@@ -44,7 +44,7 @@ export default function AppSidebar() {
         title="Hide sidebar"
         className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-100 shrink-0 text-left hover:bg-slate-50 transition-colors"
       >
-        <LogoMark open={!collapsed} className="w-8 h-8 shrink-0 shadow-[0_6px_14px_-4px_rgba(25,178,149,0.5)] rounded-xl" />
+        <LogoMark open={!collapsed} className="w-8 h-8 shrink-0" />
         <span className="text-base font-black text-slate-900 tracking-tight">Bizscale</span>
       </button>
 

@@ -44,7 +44,7 @@ export default function LoginPage() {
         <div className="bg-white/95 border border-white shadow-[0_24px_80px_rgba(15,23,42,0.1)] rounded-[32px] p-8 sm:p-10">
           
           <div className="flex flex-col items-center mb-8">
-            <LogoMark className="w-16 h-16 rounded-2xl shadow-lg shadow-[#19b295]/20 mb-6" />
+            <LogoMark className="w-16 h-16 mb-6" />
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Secure Login</h1>
             <p className="text-sm text-slate-500 mt-2 font-medium">Enter your credentials to access the CRM</p>
           </div>
