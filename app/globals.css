@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f3fbf9;
+  --background: #f6f4f1;
   --foreground: #0f172a;
 
   /* Company-wide theme (see lib/theme.ts + components/AuthProvider.tsx),
-     matching businessupscalers.com's brand teal. These are also the
-     pre-JS-apply defaults used for the very first paint. */
-  --bg: #f3fbf9;
+     matching bizscale.pk's brand teal-green. These are also the pre-JS-apply
+     defaults used for the very first paint. */
+  --bg: #f6f4f1;
   --bg-foreground: #0f172a;
   --bg-muted: #64748b;
   --card: #ffffff;
   --card-border: #f1f5f9;
   --card-foreground: #0f172a;
   --card-muted: #64748b;
-  --button: #0cefc9;
-  --button-hover: #0bd1b0;
-  --button-text: #0f172a;
-  --accent: #0cefc9;
-  --accent-hover: #0bd1b0;
-  --accent-light: #e5fdf8;
-  --accent-text: #0f172a;
+  --button: #19b295;
+  --button-hover: #15997f;
+  --button-text: #ffffff;
+  --accent: #19b295;
+  --accent-hover: #15997f;
+  --accent-light: #ebfaf7;
+  --accent-text: #ffffff;
 }
 
 @theme inline {
@@ -41,7 +41,7 @@ body {
 }
 
 ::selection {
-  background: rgba(12, 239, 201, 0.25);
+  background: rgba(25, 178, 149, 0.25);
 }
 
 input,

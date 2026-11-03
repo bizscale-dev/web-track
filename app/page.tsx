@@ -36,8 +36,8 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-slate-50 p-4 relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#0cefc9]/10 to-transparent pointer-events-none" />
-      <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#0cefc9]/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#19b295]/10 to-transparent pointer-events-none" />
+      <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#19b295]/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-1/2 -left-24 w-72 h-72 bg-[#1a4741]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md z-10">
@@ -65,7 +65,7 @@ export default function LoginPage() {
                   placeholder="Email Address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-[#0cefc9]/20 focus:border-[#0cefc9] transition-all font-medium"
+                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-[#19b295]/20 focus:border-[#19b295] transition-all font-medium"
                 />
               </div>
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-[#0cefc9]/20 focus:border-[#0cefc9] transition-all font-medium font-mono"
+                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-[#19b295]/20 focus:border-[#19b295] transition-all font-medium font-mono"
                 />
               </div>
             </div>

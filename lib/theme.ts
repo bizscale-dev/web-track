@@ -1,15 +1,16 @@
-// Single company-wide theme, matching businessupscalers.com's brand colors
-// (teal accent #0cefc9, dark teal logo mark #1a4741). This used to be a
-// per-user 3-color theme people could customize in Settings; that option is
-// gone — everyone gets the same branded look now. Button/accent each expand
-// into a small derived palette (hover shade, light tint, readable on-color
-// text) via HSL math; background is applied as-is since it only ever sits
-// behind white/light card surfaces, never behind text directly.
+// Single company-wide theme, matching bizscale.pk's brand colors (teal-green
+// accent #19b295, hover #15997f, pulled from the site's own Elementor theme
+// preset vars). This used to be a per-user 3-color theme people could
+// customize in Settings; that option is gone — everyone gets the same
+// branded look now. Button/accent each expand into a small derived palette
+// (hover shade, light tint, readable on-color text) via HSL math; background
+// is applied as-is since it only ever sits behind white/light card surfaces,
+// never behind text directly.
 
-export const DEFAULT_BG = "#f3fbf9";
+export const DEFAULT_BG = "#f6f4f1";
 export const DEFAULT_CARD = "#ffffff";
-export const DEFAULT_BUTTON = "#0cefc9"; // Business Upscalers brand teal
-export const DEFAULT_ACCENT = "#0cefc9";
+export const DEFAULT_BUTTON = "#19b295"; // Bizscale brand teal-green
+export const DEFAULT_ACCENT = "#19b295";
 
 // Kept for any code still importing the old single-color name.
 export const DEFAULT_ACCENT_COLOR = DEFAULT_ACCENT;
