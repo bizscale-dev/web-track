@@ -1027,7 +1027,10 @@ export default function EodClient() {
                         </button>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          {pastReport.status === "draft" && pastReport.eod_entries.length > 0 && (
+                          {pastReport.status === "draft" &&
+                            pastReport.eod_entries.length > 0 &&
+                            !!pastReport.extended_due_at &&
+                            new Date(pastReport.extended_due_at) > new Date() && (
                             <button
                               onClick={() => submitPastReport(pastReport)}
                               disabled={isSubmittingThis}
