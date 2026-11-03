@@ -54,3 +54,291 @@ button {
 a {
   text-underline-offset: 0.18em;
 }
+
+/* ============================================================
+   Bat-Mode (dark theme) — toggled by components/BatmanThemeToggle.tsx
+   via a `bat-mode` class on <html>.
+
+   The app is built almost entirely from raw Tailwind palette classes
+   (bg-slate-50, text-rose-600, border-gray-200, ...) rather than the
+   --card/--bg custom properties, so a real dark mode has to re-theme
+   those palette tokens directly instead of hoping a few CSS vars cover
+   everything.
+
+   Two techniques, chosen per color family:
+
+   1. Accent/status hues (rose, emerald, amber, blue, sky, violet, ...):
+      redefine the Tailwind-generated --color-{hue}-{50,100,200,300}
+      variables themselves. Every utility class that reads that
+      variable (bg-rose-50, border-rose-100, ring-rose-200, ...)
+      updates automatically. Shades 400-900 are left alone — those are
+      the saturated, "works on light or dark" tones (solid buttons,
+      icons) and are never used here as a light background that would
+      need inverting.
+
+   2. Neutrals (slate, gray): shades 50-300 are *always* used as light
+      panel backgrounds/borders in this codebase, and shades 700-950
+      are *always* either heading text OR a deliberately-dark fixed
+      button/overlay (bg-slate-900 + text-white) that must stay dark in
+      both themes. Those two uses read the same CSS variable, so a
+      variable swap would break one of them. Instead each class is
+      targeted directly: backgrounds/borders for 50-300 become panel
+      tones, text color for 300-950 becomes a readable light tone, and
+      backgrounds for 700-950 are left untouched.
+
+   Both techniques are unlayered rules, which in CSS cascade terms
+   always beat Tailwind's own utilities (declared inside @layer
+   utilities) regardless of selector specificity — no !important needed
+   except where we're also overriding this app's own --bg/--card/etc.
+   variables, which get set as an *inline* style by lib/theme.ts on
+   every auth load and so need !important to win.
+   ============================================================ */
+
+:root.bat-mode {
+  color-scheme: dark;
+
+  /* Base dark palette */
+  --bat-base: #0a0f1c;
+  --bat-panel: #111a2c;
+  --bat-card: #151f36;
+  --bat-border-soft: #1d2a44;
+  --bat-border: #28395a;
+  --bat-text-max: #f3f6fb;
+  --bat-text-high: #dde3ef;
+  --bat-text-med: #c2cadd;
+  --bat-text-body: #a3aec6;
+  --bat-text-muted: #8793ad;
+  --bat-text-subtle: #6b7792;
+  --bat-text-faint: #3c4760;
+
+  /* This app's own theme vars (lib/theme.ts / AuthProvider) are applied
+     as an inline style, which normally beats a stylesheet rule — these
+     need !important to actually take over. Brand button/accent colors
+     (teal) are left as-is; they only ever sit as a solid fill behind
+     already-chosen on-color text, so they read fine in either theme. */
+  --bg: var(--bat-base) !important;
+  --bg-foreground: var(--bat-text-max) !important;
+  --bg-muted: var(--bat-text-muted) !important;
+  --card: var(--bat-card) !important;
+  --card-border: var(--bat-border) !important;
+  --card-foreground: var(--bat-text-max) !important;
+  --card-muted: var(--bat-text-muted) !important;
+  --accent-light: color-mix(in oklab, var(--button) 20%, var(--bat-base) 80%) !important;
+
+  /* Accent/status hues — light tints become dark tints of the same hue,
+     mixed toward the page base. 400-900 are intentionally untouched. */
+  --color-amber-50: color-mix(in oklab, var(--color-amber-500) 14%, var(--bat-base) 86%);
+  --color-amber-100: color-mix(in oklab, var(--color-amber-500) 24%, var(--bat-base) 76%);
+  --color-amber-200: color-mix(in oklab, var(--color-amber-500) 42%, var(--bat-base) 58%);
+  --color-amber-300: color-mix(in oklab, var(--color-amber-500) 62%, var(--bat-base) 38%);
+
+  --color-blue-50: color-mix(in oklab, var(--color-blue-500) 14%, var(--bat-base) 86%);
+  --color-blue-100: color-mix(in oklab, var(--color-blue-500) 24%, var(--bat-base) 76%);
+  --color-blue-200: color-mix(in oklab, var(--color-blue-500) 42%, var(--bat-base) 58%);
+  --color-blue-300: color-mix(in oklab, var(--color-blue-500) 62%, var(--bat-base) 38%);
+
+  --color-cyan-50: color-mix(in oklab, var(--color-cyan-500) 14%, var(--bat-base) 86%);
+  --color-cyan-100: color-mix(in oklab, var(--color-cyan-500) 24%, var(--bat-base) 76%);
+  --color-cyan-200: color-mix(in oklab, var(--color-cyan-500) 42%, var(--bat-base) 58%);
+  --color-cyan-300: color-mix(in oklab, var(--color-cyan-500) 62%, var(--bat-base) 38%);
+
+  --color-emerald-50: color-mix(in oklab, var(--color-emerald-500) 14%, var(--bat-base) 86%);
+  --color-emerald-100: color-mix(in oklab, var(--color-emerald-500) 24%, var(--bat-base) 76%);
+  --color-emerald-200: color-mix(in oklab, var(--color-emerald-500) 42%, var(--bat-base) 58%);
+  --color-emerald-300: color-mix(in oklab, var(--color-emerald-500) 62%, var(--bat-base) 38%);
+
+  --color-fuchsia-50: color-mix(in oklab, var(--color-fuchsia-500) 14%, var(--bat-base) 86%);
+  --color-fuchsia-100: color-mix(in oklab, var(--color-fuchsia-500) 24%, var(--bat-base) 76%);
+  --color-fuchsia-200: color-mix(in oklab, var(--color-fuchsia-500) 42%, var(--bat-base) 58%);
+  --color-fuchsia-300: color-mix(in oklab, var(--color-fuchsia-500) 62%, var(--bat-base) 38%);
+
+  --color-green-50: color-mix(in oklab, var(--color-green-500) 14%, var(--bat-base) 86%);
+  --color-green-100: color-mix(in oklab, var(--color-green-500) 24%, var(--bat-base) 76%);
+  --color-green-200: color-mix(in oklab, var(--color-green-500) 42%, var(--bat-base) 58%);
+  --color-green-300: color-mix(in oklab, var(--color-green-500) 62%, var(--bat-base) 38%);
+
+  --color-indigo-50: color-mix(in oklab, var(--color-indigo-500) 14%, var(--bat-base) 86%);
+  --color-indigo-100: color-mix(in oklab, var(--color-indigo-500) 24%, var(--bat-base) 76%);
+  --color-indigo-200: color-mix(in oklab, var(--color-indigo-500) 42%, var(--bat-base) 58%);
+  --color-indigo-300: color-mix(in oklab, var(--color-indigo-500) 62%, var(--bat-base) 38%);
+
+  --color-orange-50: color-mix(in oklab, var(--color-orange-500) 14%, var(--bat-base) 86%);
+  --color-orange-100: color-mix(in oklab, var(--color-orange-500) 24%, var(--bat-base) 76%);
+  --color-orange-200: color-mix(in oklab, var(--color-orange-500) 42%, var(--bat-base) 58%);
+  --color-orange-300: color-mix(in oklab, var(--color-orange-500) 62%, var(--bat-base) 38%);
+
+  --color-pink-50: color-mix(in oklab, var(--color-pink-500) 14%, var(--bat-base) 86%);
+  --color-pink-100: color-mix(in oklab, var(--color-pink-500) 24%, var(--bat-base) 76%);
+  --color-pink-200: color-mix(in oklab, var(--color-pink-500) 42%, var(--bat-base) 58%);
+  --color-pink-300: color-mix(in oklab, var(--color-pink-500) 62%, var(--bat-base) 38%);
+
+  --color-purple-50: color-mix(in oklab, var(--color-purple-500) 14%, var(--bat-base) 86%);
+  --color-purple-100: color-mix(in oklab, var(--color-purple-500) 24%, var(--bat-base) 76%);
+  --color-purple-200: color-mix(in oklab, var(--color-purple-500) 42%, var(--bat-base) 58%);
+  --color-purple-300: color-mix(in oklab, var(--color-purple-500) 62%, var(--bat-base) 38%);
+
+  --color-red-50: color-mix(in oklab, var(--color-red-500) 14%, var(--bat-base) 86%);
+  --color-red-100: color-mix(in oklab, var(--color-red-500) 24%, var(--bat-base) 76%);
+  --color-red-200: color-mix(in oklab, var(--color-red-500) 42%, var(--bat-base) 58%);
+  --color-red-300: color-mix(in oklab, var(--color-red-500) 62%, var(--bat-base) 38%);
+
+  --color-rose-50: color-mix(in oklab, var(--color-rose-500) 14%, var(--bat-base) 86%);
+  --color-rose-100: color-mix(in oklab, var(--color-rose-500) 24%, var(--bat-base) 76%);
+  --color-rose-200: color-mix(in oklab, var(--color-rose-500) 42%, var(--bat-base) 58%);
+  --color-rose-300: color-mix(in oklab, var(--color-rose-500) 62%, var(--bat-base) 38%);
+
+  --color-sky-50: color-mix(in oklab, var(--color-sky-500) 14%, var(--bat-base) 86%);
+  --color-sky-100: color-mix(in oklab, var(--color-sky-500) 24%, var(--bat-base) 76%);
+  --color-sky-200: color-mix(in oklab, var(--color-sky-500) 42%, var(--bat-base) 58%);
+  --color-sky-300: color-mix(in oklab, var(--color-sky-500) 62%, var(--bat-base) 38%);
+
+  --color-teal-50: color-mix(in oklab, var(--color-teal-500) 14%, var(--bat-base) 86%);
+  --color-teal-100: color-mix(in oklab, var(--color-teal-500) 24%, var(--bat-base) 76%);
+  --color-teal-200: color-mix(in oklab, var(--color-teal-500) 42%, var(--bat-base) 58%);
+  --color-teal-300: color-mix(in oklab, var(--color-teal-500) 62%, var(--bat-base) 38%);
+
+  --color-violet-50: color-mix(in oklab, var(--color-violet-500) 14%, var(--bat-base) 86%);
+  --color-violet-100: color-mix(in oklab, var(--color-violet-500) 24%, var(--bat-base) 76%);
+  --color-violet-200: color-mix(in oklab, var(--color-violet-500) 42%, var(--bat-base) 58%);
+  --color-violet-300: color-mix(in oklab, var(--color-violet-500) 62%, var(--bat-base) 38%);
+
+  --color-yellow-50: color-mix(in oklab, var(--color-yellow-500) 14%, var(--bat-base) 86%);
+  --color-yellow-100: color-mix(in oklab, var(--color-yellow-500) 24%, var(--bat-base) 76%);
+  --color-yellow-200: color-mix(in oklab, var(--color-yellow-500) 42%, var(--bat-base) 58%);
+  --color-yellow-300: color-mix(in oklab, var(--color-yellow-500) 62%, var(--bat-base) 38%);
+}
+
+html.bat-mode body {
+  background: var(--bg);
+  color: var(--bg-foreground);
+}
+
+/* Neutral backgrounds/borders (50-300): always a light panel/border in
+   this codebase, so these become dark panel tones. The trailing-slash
+   attribute selectors catch opacity variants (bg-slate-50/80, ...)
+   without accidentally matching bg-slate-500 etc. */
+html.bat-mode .bg-slate-50,
+html.bat-mode .bg-gray-50,
+html.bat-mode [class*="bg-slate-50/"],
+html.bat-mode [class*="bg-gray-50/"],
+html.bat-mode .from-slate-50,
+html.bat-mode .via-slate-50,
+html.bat-mode .to-slate-50 {
+  background-color: var(--bat-base);
+}
+html.bat-mode .bg-slate-100,
+html.bat-mode .bg-gray-100,
+html.bat-mode [class*="bg-slate-100/"],
+html.bat-mode [class*="bg-gray-100/"],
+html.bat-mode .from-slate-100,
+html.bat-mode .via-slate-100,
+html.bat-mode .to-slate-100 {
+  background-color: var(--bat-panel);
+}
+html.bat-mode .bg-slate-200,
+html.bat-mode .bg-gray-200,
+html.bat-mode [class*="bg-slate-200/"],
+html.bat-mode [class*="bg-gray-200/"],
+html.bat-mode .from-slate-200,
+html.bat-mode .via-slate-200,
+html.bat-mode .to-slate-200 {
+  background-color: var(--bat-border-soft);
+}
+html.bat-mode .bg-slate-300,
+html.bat-mode .bg-gray-300,
+html.bat-mode [class*="bg-slate-300/"],
+html.bat-mode [class*="bg-gray-300/"],
+html.bat-mode .to-slate-300 {
+  background-color: var(--bat-border);
+}
+html.bat-mode [class*="bg-white"],
+html.bat-mode [class*="bg-white/"] {
+  background-color: var(--card);
+}
+
+html.bat-mode .border-slate-50,
+html.bat-mode .border-gray-50,
+html.bat-mode .border-slate-100,
+html.bat-mode .border-gray-100,
+html.bat-mode .divide-slate-100,
+html.bat-mode .divide-gray-100,
+html.bat-mode [class*="border-slate-100/"],
+html.bat-mode [class*="border-gray-100/"] {
+  border-color: var(--bat-border-soft);
+}
+html.bat-mode .border-slate-200,
+html.bat-mode .border-gray-200,
+html.bat-mode .border-slate-300,
+html.bat-mode .border-gray-300,
+html.bat-mode [class*="border-slate-200/"],
+html.bat-mode [class*="border-gray-200/"] {
+  border-color: var(--bat-border);
+}
+html.bat-mode [class*="border-white"] {
+  border-color: var(--bat-border);
+}
+
+/* Neutral text (300-950): always heading/body/muted text in this
+   codebase, so these become light, readable tones. Backgrounds at
+   700-950 (bg-slate-900 buttons, bg-slate-900/60 overlays) are
+   deliberately left untouched — they're meant to stay dark. */
+html.bat-mode .text-slate-300,
+html.bat-mode .text-gray-300 {
+  color: var(--bat-text-faint);
+}
+html.bat-mode .text-slate-400,
+html.bat-mode .text-gray-400,
+html.bat-mode .placeholder-gray-400::placeholder,
+html.bat-mode .placeholder-slate-400::placeholder {
+  color: var(--bat-text-subtle);
+}
+html.bat-mode .text-slate-500,
+html.bat-mode .text-gray-500 {
+  color: var(--bat-text-muted);
+}
+html.bat-mode .text-slate-600,
+html.bat-mode .text-gray-600 {
+  color: var(--bat-text-body);
+}
+html.bat-mode .text-slate-700,
+html.bat-mode .text-gray-700 {
+  color: var(--bat-text-med);
+}
+html.bat-mode .text-slate-800,
+html.bat-mode .text-gray-800 {
+  color: var(--bat-text-high);
+}
+html.bat-mode .text-slate-900,
+html.bat-mode .text-gray-900,
+html.bat-mode .text-slate-950 {
+  color: var(--bat-text-max);
+}
+
+/* Inputs/selects/textareas sit on bg-slate-50/bg-white already handled
+   above, but native UA chrome (date pickers, option lists) needs the
+   color-scheme set above and a touch of explicit styling to match. */
+html.bat-mode input,
+html.bat-mode select,
+html.bat-mode textarea {
+  color-scheme: dark;
+}
+html.bat-mode input:focus,
+html.bat-mode select:focus,
+html.bat-mode textarea:focus {
+  background-color: var(--bat-panel);
+}
+
+html.bat-mode ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html.bat-mode ::-webkit-scrollbar-track {
+  background: var(--bat-base);
+}
+html.bat-mode ::-webkit-scrollbar-thumb {
+  background: var(--bat-border);
+  border-radius: 999px;
+}
+html.bat-mode ::-webkit-scrollbar-thumb:hover {
+  background: var(--bat-text-faint);
+}
