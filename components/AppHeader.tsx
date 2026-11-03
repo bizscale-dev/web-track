@@ -60,7 +60,7 @@ export default function AppHeader() {
                 aria-label="Show sidebar"
                 className="hidden lg:flex items-center justify-center w-10 h-10 transition-transform hover:scale-105 shrink-0"
               >
-                <LogoMark open={false} className="w-full h-full" />
+                <LogoMark open={true} className="w-full h-full" />
               </button>
             )}
             {role !== "user" && (
