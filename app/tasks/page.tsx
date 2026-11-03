@@ -160,6 +160,7 @@ export default function TasksPage() {
   const [tabOverride, setTabOverride] = useState<Tab | null>(null);
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [avatarsByEmail, setAvatarsByEmail] = useState<Record<string, string>>({});
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
   const [taskRevisions, setTaskRevisions] = useState<TaskRevision[]>([]);
 
@@ -228,6 +229,7 @@ export default function TasksPage() {
       loadRevisions();
       markTasksSeen();
       if (canAssign) loadTeamMembers();
+      loadAvatars();
     }
   }, [canView, canAssign, email]);
 
@@ -311,6 +313,18 @@ export default function TasksPage() {
       .neq("role", "admin")
       .order("name", { ascending: true });
     setTeamMembers((data as TeamMember[]) || []);
+  };
+
+  // Separate from loadTeamMembers (which excludes admin and is gated behind
+  // canAssign) — every viewer needs to resolve a photo for whoever shows up
+  // as assignee or approval manager, admin included.
+  const loadAvatars = async () => {
+    const { data } = await supabase.from("team_members").select("email, avatar_url");
+    const map: Record<string, string> = {};
+    for (const m of (data as { email: string; avatar_url: string | null }[]) || []) {
+      if (m.avatar_url) map[m.email] = m.avatar_url;
+    }
+    setAvatarsByEmail(map);
   };
 
   // Admin can assign to anyone (any non-admin). A manager can only assign or
@@ -1237,8 +1251,23 @@ export default function TasksPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-bold shrink-0 shadow-sm ring-2 ring-white mt-0.5">
-                            {effectiveAssigneeName(task).charAt(0).toUpperCase() || "?"}
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-bold shrink-0 shadow-sm ring-2 ring-white mt-0.5 overflow-hidden">
+                            {avatarsByEmail[effectiveAssigneeEmail(task)] ? (
+                              <img
+                                src={avatarsByEmail[effectiveAssigneeEmail(task)]}
+                                alt={effectiveAssigneeName(task)}
+                                className="w-full h-full object-cover"
+                                onError={() =>
+                                  setAvatarsByEmail((current) => {
+                                    const next = { ...current };
+                                    delete next[effectiveAssigneeEmail(task)];
+                                    return next;
+                                  })
+                                }
+                              />
+                            ) : (
+                              effectiveAssigneeName(task).charAt(0).toUpperCase() || "?"
+                            )}
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
@@ -1415,8 +1444,23 @@ export default function TasksPage() {
                         Current Assignee
                       </p>
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-bold shrink-0 shadow-sm ring-2 ring-white">
-                          {effectiveAssigneeName(selectedTask).charAt(0).toUpperCase() || "?"}
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-bold shrink-0 shadow-sm ring-2 ring-white overflow-hidden">
+                          {avatarsByEmail[effectiveAssigneeEmail(selectedTask)] ? (
+                            <img
+                              src={avatarsByEmail[effectiveAssigneeEmail(selectedTask)]}
+                              alt={effectiveAssigneeName(selectedTask)}
+                              className="w-full h-full object-cover"
+                              onError={() =>
+                                setAvatarsByEmail((current) => {
+                                  const next = { ...current };
+                                  delete next[effectiveAssigneeEmail(selectedTask)];
+                                  return next;
+                                })
+                              }
+                            />
+                          ) : (
+                            effectiveAssigneeName(selectedTask).charAt(0).toUpperCase() || "?"
+                          )}
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-[var(--card-foreground)] truncate">
@@ -1435,8 +1479,23 @@ export default function TasksPage() {
                         Approval Manager
                       </p>
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white text-xs font-bold shrink-0 shadow-sm ring-2 ring-white">
-                          {(selectedTask.reassigned_by_name || "Admin").charAt(0).toUpperCase()}
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white text-xs font-bold shrink-0 shadow-sm ring-2 ring-white overflow-hidden">
+                          {selectedTask.reassigned_by_email && avatarsByEmail[selectedTask.reassigned_by_email] ? (
+                            <img
+                              src={avatarsByEmail[selectedTask.reassigned_by_email]}
+                              alt={selectedTask.reassigned_by_name || "Admin"}
+                              className="w-full h-full object-cover"
+                              onError={() =>
+                                setAvatarsByEmail((current) => {
+                                  const next = { ...current };
+                                  delete next[selectedTask.reassigned_by_email!];
+                                  return next;
+                                })
+                              }
+                            />
+                          ) : (
+                            (selectedTask.reassigned_by_name || "Admin").charAt(0).toUpperCase()
+                          )}
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-[var(--card-foreground)] truncate">
