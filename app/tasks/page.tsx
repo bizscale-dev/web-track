@@ -144,6 +144,12 @@ export default function TasksPage() {
   // task regardless of which tab it'd normally fall under, since a manager
   // viewing a revision they didn't assign has no tab that would surface it.
   const highlightTaskId = searchParams.get("taskId") ? Number(searchParams.get("taskId")) : null;
+  // The stat cards below set quickFilter/workStatusFilter, but those are
+  // ignored while highlightTaskId is forcing the list down to one task —
+  // clicking a card needs to drop ?taskId first or it looks like a no-op.
+  const clearTaskHighlight = () => {
+    if (highlightTaskId !== null) router.replace("/tasks");
+  };
   const { role, name, email, loading: authLoading } = useAuth();
   const canView = role !== "user" && !!role;
   const isAdmin = role === "admin";
@@ -1046,6 +1052,7 @@ export default function TasksPage() {
           <button
             type="button"
             onClick={() => {
+              clearTaskHighlight();
               setQuickFilter("all");
               setWorkStatusFilter("all");
             }}
@@ -1068,6 +1075,7 @@ export default function TasksPage() {
           <button
             type="button"
             onClick={() => {
+              clearTaskHighlight();
               setWorkStatusFilter("in_progress");
               setQuickFilter("all");
             }}
@@ -1086,6 +1094,7 @@ export default function TasksPage() {
           <button
             type="button"
             onClick={() => {
+              clearTaskHighlight();
               setQuickFilter("pending_review");
               setWorkStatusFilter("all");
             }}
@@ -1107,6 +1116,7 @@ export default function TasksPage() {
           <button
             type="button"
             onClick={() => {
+              clearTaskHighlight();
               setQuickFilter("overdue");
               setWorkStatusFilter("all");
             }}
@@ -1189,6 +1199,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => {
+                  clearTaskHighlight();
                   setSearchQuery("");
                   setAssigneeFilter("all");
                   setWorkStatusFilter("all");
